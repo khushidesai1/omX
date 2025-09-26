@@ -1,6 +1,9 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import wordMark from '../assets/name.svg'
+import { useAuth } from '../hooks/useAuth'
 
 const highlightTiles = [
   { label: 'Columbia SSO verified', value: '@columbia.edu' },
@@ -9,6 +12,35 @@ const highlightTiles = [
 ]
 
 function SignIn() {
+  const navigate = useNavigate()
+  const { login, authState, clearError } = useAuth()
+  const [formState, setFormState] = useState({ email: '', password: '' })
+  const [localError, setLocalError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (authState.isAuthenticated) {
+      navigate('/dashboard')
+    }
+  }, [authState.isAuthenticated, navigate])
+
+  const combinedError = useMemo(() => localError || authState.error, [localError, authState.error])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setLocalError(null)
+    clearError()
+
+    if (!formState.email.trim() || !formState.password.trim()) {
+      setLocalError('Email and password are required.')
+      return
+    }
+
+    setIsSubmitting(true)
+    await login(formState.email.trim(), formState.password)
+    setIsSubmitting(false)
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col bg-brand-primary/10">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(158,184,160,0.25),_transparent_55%)]" />
@@ -79,7 +111,7 @@ function SignIn() {
                 <span className="h-px flex-1 bg-brand-primary/20" />
               </div>
 
-              <form className="space-y-5 text-left">
+              <form className="space-y-5 text-left" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-semibold text-brand-text">
                     Email
@@ -87,8 +119,13 @@ function SignIn() {
                   <input
                     id="email"
                     type="email"
+                    value={formState.email}
+                    onChange={(event) => {
+                      setFormState((previous) => ({ ...previous, email: event.target.value }))
+                      setLocalError(null)
+                      clearError()
+                    }}
                     placeholder="name@columbia.edu"
-                    required
                     className="w-full rounded-xl border border-brand-primary/30 bg-white px-4 py-3 text-brand-text outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
                   />
                 </div>
@@ -104,13 +141,23 @@ function SignIn() {
                   <input
                     id="password"
                     type="password"
-                    required
+                    value={formState.password}
+                    onChange={(event) => {
+                      setFormState((previous) => ({ ...previous, password: event.target.value }))
+                      setLocalError(null)
+                      clearError()
+                    }}
                     autoComplete="current-password"
                     className="w-full rounded-xl border border-brand-primary/30 bg-white px-4 py-3 text-brand-text outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
                   />
                 </div>
-                <button className="w-full rounded-full bg-brand-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-primary-dark">
-                  Sign In
+                {combinedError && <p className="text-sm text-amber-600">{combinedError}</p>}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full rounded-full bg-brand-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Signing in…' : 'Sign In'}
                 </button>
               </form>
 

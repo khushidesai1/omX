@@ -92,17 +92,17 @@ function Home() {
               Multi-omics intelligence, orchestrated
             </p>
             <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-              Process, visualize, and annotate high-throughput data without leaving your workspace.
+              Explore, visualize, and interact with high-throughput data without leaving your workspace.
             </h1>
             <p className="text-lg leading-relaxed text-brand-body">
-              omX unifies developer-friendly tooling with approachable, no-code dashboards. Streamline Xenium-scale visualization, coordinate RunPod compute, and keep your collaborators in sync—no context switching required.
+              omX unifies developer-friendly tooling with approachable, no-code UI dashboards. Streamline spatial transcriptomics visualization with custom allocated compute, and keep your collaborators in sync—no context switching required.
             </p>
             <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 to="/auth/sign-up"
                 className="inline-flex h-12 items-center justify-center rounded-full bg-brand-primary px-8 text-base font-semibold text-white transition-colors hover:bg-brand-primary-dark"
               >
-                Request Early Access
+                Request Access
               </Link>
               <a
                 href="#features"
