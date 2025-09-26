@@ -1,62 +1,48 @@
-import { useState } from 'react'
-
-interface TextResponse {
-  text: string
-  timestamp: string
-}
+import iconMark from './assets/icon.svg'
+import wordMark from './assets/name.svg'
 
 function App() {
-  const [generatedText, setGeneratedText] = useState<string>('')
-  const [loading, setLoading] = useState(false)
-
-  const fetchText = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('http://localhost:8000/generate-text')
-      const data: TextResponse = await response.json()
-      setGeneratedText(data.text)
-    } catch (error) {
-      console.error('Error fetching text:', error)
-      setGeneratedText('Error fetching text from backend')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-      <div className="relative py-3 sm:max-w-xl sm:mx-auto">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-light-blue-500 shadow-lg transform -skew-y-6 sm:skew-y-0 sm:-rotate-6 sm:rounded-3xl"></div>
-        <div className="relative px-4 py-10 bg-white shadow-lg sm:rounded-3xl sm:p-20">
-          <div className="max-w-md mx-auto">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900 mb-6">
-                Full Stack Demo
-              </h1>
-            </div>
-            <div className="divide-y divide-gray-200">
-              <div className="py-8 text-base leading-6 space-y-4 text-gray-700 sm:text-lg sm:leading-7">
-                <p>Click the button below to fetch text from the FastAPI backend:</p>
-                <div className="pt-6 text-base leading-6 font-bold sm:text-lg sm:leading-7">
-                  <button
-                    onClick={fetchText}
-                    disabled={loading}
-                    className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
-                  >
-                    {loading ? 'Loading...' : 'Generate Text'}
-                  </button>
-                </div>
-                {generatedText && (
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="font-semibold text-gray-900">Generated Text:</h3>
-                    <p className="text-gray-700 mt-2">{generatedText}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-white text-neutral-900">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8">
+        <div className="flex items-center gap-3">
+          <img src={iconMark} alt="omX icon" className="h-12 w-12" />
+          <img src={wordMark} alt="omX" className="h-8" />
         </div>
-      </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="rounded-full border border-[#2E5D3D] px-5 py-2 text-sm font-medium text-[#2E5D3D] transition-colors duration-200 hover:bg-[#2E5D3D]/10"
+          >
+            Sign Up
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-[#2E5D3D] px-5 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-[#2B5437]"
+          >
+            Log In
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-16 text-center">
+        <section className="space-y-6">
+          <h1 className="text-3xl font-light text-[#1F1F1F] sm:text-4xl">
+            <span className="font-semibold">Process</span> and{' '}
+            <span className="font-semibold">visualize</span> with the click of a few buttons...
+          </h1>
+          <p className="mx-auto max-w-3xl text-base text-[#5A5A5A] sm:text-lg">
+            Create your central dashboard for processing, visualizing and annotating high-throughput
+            multi-omics data through customized developer-friendly and code-free pipelines.
+          </p>
+        </section>
+
+        <section className="mt-16 w-full">
+          <div className="mx-auto max-w-4xl rounded-[32px] bg-[#9CB29A] p-6 sm:p-10">
+            <div className="aspect-[4/3] w-full rounded-[24px] bg-[#ECECEC] shadow-[0_8px_20px_rgba(0,0,0,0.1)]"></div>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
