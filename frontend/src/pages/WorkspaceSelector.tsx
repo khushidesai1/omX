@@ -122,7 +122,9 @@ function WorkspaceSelector() {
             </div>
             <button
               type="button"
-              onClick={logout}
+              onClick={() => {
+                logout().catch(() => {})
+              }}
               className="rounded-full border border-brand-primary/40 px-4 py-2 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary/10"
             >
               Log out

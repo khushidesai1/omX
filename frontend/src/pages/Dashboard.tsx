@@ -82,7 +82,9 @@ function Dashboard() {
               </div>
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => {
+                  logout().catch(() => {})
+                }}
                 className="rounded-full border border-brand-primary/30 px-3 py-1 text-xs font-semibold text-brand-primary transition hover:bg-brand-primary/10"
               >
                 Log out
