@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react'
@@ -20,7 +21,7 @@ interface AuthContextValue {
   workspaces: Workspace[]
   projectsByWorkspace: Record<string, Project[]>
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   register: (data: RegisterData) => Promise<void>
   setCurrentWorkspace: (workspaceId: string) => void
   createWorkspace: (
@@ -34,167 +35,94 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const nowIso = () => new Date().toISOString()
+const ACCESS_TOKEN_KEY = 'access_token'
+const apiBaseUrl: string | undefined = import.meta.env.VITE_API_URL
 
-const createId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
+const ensureApiBaseUrl = () => {
+  if (!apiBaseUrl) {
+    throw new Error('API base URL is not configured.')
   }
-
-  return `id-${Math.random().toString(36).slice(2, 11)}`
 }
 
-const generateInviteCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = ''
-  for (let index = 0; index < 6; index += 1) {
-    const randomIndex = Math.floor(Math.random() * chars.length)
-    code += chars[randomIndex]
-  }
-  return code
-}
-
-const mockCatalog: Array<{
-  inviteCode: string
-  accessKey?: string
-  workspace: Workspace
-  projects: Project[]
-}> = [
-  {
-    inviteCode: 'AZIZI6',
-    workspace: {
-      id: 'workspace-azizi',
-      name: 'AziziLab Workspace',
-      description: 'Joint tumor microenvironment analyses and compute orchestration.',
-      ownerId: 'user-azizi',
-      inviteCode: 'AZIZI6',
-      hasAccessKey: false,
-      isPublic: false,
-      memberCount: 12,
-      role: 'member',
-      createdAt: '2023-04-12T15:24:00.000Z',
-    },
-    projects: [
-      {
-        id: 'project-stroma',
-        name: 'Stroma Atlas Sprint',
-        description: 'High dimensional profiling for co-culture experiments.',
-        workspaceId: 'workspace-azizi',
-        createdBy: 'user-azizi',
-        creatorName: 'Sara Azizi',
-        projectType: 'codex',
-        tags: ['codex', 'atlas'],
-        createdAt: '2024-01-06T10:12:00.000Z',
-        updatedAt: '2024-02-18T08:45:00.000Z',
-      },
-      {
-        id: 'project-residency',
-        name: 'Resident TIL Analysis',
-        description: 'Spatial phenotyping of tissue resident lymphocytes.',
-        workspaceId: 'workspace-azizi',
-        createdBy: 'user-lwei',
-        creatorName: 'Lina Wei',
-        projectType: 'xenium',
-        tags: ['xenium', 'til'],
-        createdAt: '2023-11-01T18:33:00.000Z',
-        updatedAt: '2024-03-02T14:05:00.000Z',
-      },
-    ],
-  },
-  {
-    inviteCode: 'GENSYS',
-    accessKey: 'SECURE-2024',
-    workspace: {
-      id: 'workspace-gensys',
-      name: 'GenSys Pilot',
-      description: 'Multi-institution compute sandbox for pilot deployments.',
-      ownerId: 'user-gensys',
-      inviteCode: 'GENSYS',
-      hasAccessKey: true,
-      isPublic: false,
-      memberCount: 8,
-      role: 'member',
-      createdAt: '2024-02-21T09:17:00.000Z',
-    },
-    projects: [
-      {
-        id: 'project-runs',
-        name: 'Onboarding Benchmarks',
-        description: 'GPU scheduling benchmarks for partner organizations.',
-        workspaceId: 'workspace-gensys',
-        createdBy: 'user-gensys',
-        creatorName: 'Nikhil Rao',
-        projectType: 'pipeline',
-        tags: ['compute', 'benchmark'],
-        createdAt: '2024-03-04T12:00:00.000Z',
-        updatedAt: '2024-03-22T12:00:00.000Z',
-      },
-    ],
-  },
-]
-
-const seededLoginUser = (email: string): User => ({
-  id: 'user-seeded',
-  email,
-  firstName: 'Jordan',
-  lastName: 'Hernandez',
-  createdAt: '2024-01-01T12:00:00.000Z',
+const mapUser = (payload: any): User => ({
+  id: payload.id,
+  email: payload.email,
+  firstName: payload.first_name ?? undefined,
+  lastName: payload.last_name ?? undefined,
+  createdAt: payload.created_at,
 })
+
+const mapWorkspace = (payload: any): Workspace => ({
+  id: payload.id,
+  name: payload.name,
+  description: payload.description ?? undefined,
+  ownerId: payload.owner_id,
+  inviteCode: payload.invite_code,
+  hasAccessKey: payload.has_access_key,
+  isPublic: payload.is_public,
+  memberCount: payload.member_count,
+  role: payload.role,
+  createdAt: payload.created_at,
+})
+
+const mapProject = (payload: any): Project => ({
+  id: payload.id,
+  name: payload.name,
+  description: payload.description ?? undefined,
+  workspaceId: payload.workspace_id,
+  createdBy: payload.created_by,
+  creatorName: payload.creator_name,
+  projectType: payload.project_type ?? undefined,
+  tags: payload.tags ?? [],
+  createdAt: payload.created_at,
+  updatedAt: payload.updated_at,
+})
+
+const parseErrorMessage = async (response: Response) => {
+  try {
+    const data = await response.json()
+    if (!data) {
+      return 'Unexpected error occurred.'
+    }
+
+    if (typeof data === 'string') {
+      return data
+    }
+
+    if (Array.isArray(data.detail)) {
+      return data.detail
+        .map((item: any) => (typeof item === 'string' ? item : item?.msg))
+        .filter(Boolean)
+        .join(', ')
+    }
+
+    if (typeof data.detail === 'string') {
+      return data.detail
+    }
+
+    if (typeof data.message === 'string') {
+      return data.message
+    }
+
+    return 'Unexpected error occurred.'
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Unexpected error occurred.'
+  }
+}
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     currentWorkspaceId: null,
     isAuthenticated: false,
-    isLoading: false,
+    isLoading: true,
     error: null,
   })
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [projectsByWorkspace, setProjectsByWorkspace] = useState<Record<string, Project[]>>({})
 
-  const clearError = useCallback(() => {
-    setAuthState((previous) => ({ ...previous, error: null }))
-  }, [])
-
-  const login = useCallback(async (email: string, password: string) => {
-    if (!email || !password) {
-      setAuthState((previous) => ({
-        ...previous,
-        error: 'Email and password are required.',
-      }))
-      return
-    }
-
-    setAuthState((previous) => ({ ...previous, isLoading: true, error: null }))
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 350)
-    })
-
-    const user = seededLoginUser(email.toLowerCase())
-
-    const enrolledWorkspaces = mockCatalog.map((entry) => ({
-      ...entry.workspace,
-      role: entry.workspace.role === 'member' ? 'admin' : entry.workspace.role,
-    }))
-
-    const projectsSeed = mockCatalog.reduce<Record<string, Project[]>>((accumulator, entry) => {
-      accumulator[entry.workspace.id] = entry.projects
-      return accumulator
-    }, {})
-
-    setWorkspaces(enrolledWorkspaces)
-    setProjectsByWorkspace(projectsSeed)
-    setAuthState({
-      user,
-      currentWorkspaceId: enrolledWorkspaces[0]?.id ?? null,
-      isAuthenticated: true,
-      isLoading: false,
-      error: null,
-    })
-  }, [])
-
-  const logout = useCallback(() => {
+  const clearSession = useCallback(() => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
     setAuthState({
       user: null,
       currentWorkspaceId: null,
@@ -206,39 +134,208 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setProjectsByWorkspace({})
   }, [])
 
-  const register = useCallback(async (data: RegisterData) => {
-    if (!data.email || !data.password) {
-      setAuthState((previous) => ({
-        ...previous,
-        error: 'All required fields must be completed.',
-      }))
+  const authorizedFetch = useCallback(
+    async (endpoint: string, options: RequestInit = {}) => {
+      ensureApiBaseUrl()
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+      if (!token) {
+        throw new Error('Not authenticated.')
+      }
+
+      const headers = new Headers(options.headers ?? undefined)
+      if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json')
+      }
+      headers.set('Authorization', `Bearer ${token}`)
+
+      const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      })
+
+      if (response.status === 401) {
+        clearSession()
+        throw new Error('Session expired. Please sign in again.')
+      }
+
+      if (!response.ok) {
+        const message = await parseErrorMessage(response)
+        throw new Error(message)
+      }
+
+      return response
+    },
+    [clearSession],
+  )
+
+  const fetchProjectsForWorkspace = useCallback(
+    async (workspaceId: string) => {
+      const response = await authorizedFetch(`/workspaces/${workspaceId}/projects`)
+      const data = await response.json()
+      return (data.projects ?? []).map(mapProject)
+    },
+    [authorizedFetch],
+  )
+
+  const fetchWorkspacesAndProjects = useCallback(async () => {
+    const response = await authorizedFetch('/workspaces')
+    const data = await response.json()
+
+    const mappedWorkspaces: Workspace[] = (data.workspaces ?? []).map(mapWorkspace)
+    setWorkspaces(mappedWorkspaces)
+
+    const projectMap: Record<string, Project[]> = {}
+    for (const workspace of mappedWorkspaces) {
+      projectMap[workspace.id] = await fetchProjectsForWorkspace(workspace.id)
+    }
+
+    setProjectsByWorkspace(projectMap)
+    return mappedWorkspaces
+  }, [authorizedFetch, fetchProjectsForWorkspace])
+
+  const initializeSession = useCallback(
+    async (token: string) => {
+      ensureApiBaseUrl()
+      const response = await fetch(`${apiBaseUrl}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const message = await parseErrorMessage(response)
+        throw new Error(message)
+      }
+
+      const userData = await response.json()
+      const user = mapUser(userData)
+      localStorage.setItem(ACCESS_TOKEN_KEY, token)
+
+      const fetchedWorkspaces = await fetchWorkspacesAndProjects()
+
+      setAuthState({
+        user,
+        currentWorkspaceId: fetchedWorkspaces[0]?.id ?? null,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      })
+    },
+    [fetchWorkspacesAndProjects],
+  )
+
+  useEffect(() => {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!token) {
+      setAuthState((previous) => ({ ...previous, isLoading: false }))
       return
     }
 
-    setAuthState((previous) => ({ ...previous, isLoading: true, error: null }))
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 350)
+    initializeSession(token).catch(() => {
+      clearSession()
     })
+  }, [initializeSession, clearSession])
 
-    const user: User = {
-      id: createId(),
-      email: data.email.toLowerCase(),
-      firstName: data.firstName,
-      lastName: data.lastName,
-      createdAt: nowIso(),
-    }
-
-    setWorkspaces([])
-    setProjectsByWorkspace({})
-    setAuthState({
-      user,
-      currentWorkspaceId: null,
-      isAuthenticated: true,
-      isLoading: false,
-      error: null,
-    })
+  const clearError = useCallback(() => {
+    setAuthState((previous) => ({ ...previous, error: null }))
   }, [])
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      ensureApiBaseUrl()
+
+      if (!email || !password) {
+        const errorMessage = 'Email and password are required.'
+        setAuthState((previous) => ({ ...previous, error: errorMessage }))
+        throw new Error(errorMessage)
+      }
+
+      setAuthState((previous) => ({ ...previous, isLoading: true, error: null }))
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        })
+
+        if (!response.ok) {
+          const message = await parseErrorMessage(response)
+          throw new Error(message)
+        }
+
+        const data = await response.json()
+        await initializeSession(data.access_token)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to sign in right now.'
+        clearSession()
+        setAuthState((previous) => ({ ...previous, isLoading: false, error: message }))
+        throw new Error(message)
+      }
+    },
+    [initializeSession, clearSession],
+  )
+
+  const register = useCallback(
+    async (data: RegisterData) => {
+      ensureApiBaseUrl()
+
+      if (!data.email || !data.password) {
+        const message = 'All required fields must be completed.'
+        setAuthState((previous) => ({ ...previous, error: message }))
+        throw new Error(message)
+      }
+
+      setAuthState((previous) => ({ ...previous, isLoading: true, error: null }))
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            first_name: data.firstName,
+            last_name: data.lastName,
+          }),
+        })
+
+        if (!response.ok) {
+          const message = await parseErrorMessage(response)
+          throw new Error(message)
+        }
+
+        await login(data.email, data.password)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to create account.'
+        setAuthState((previous) => ({ ...previous, isLoading: false, error: message }))
+        throw new Error(message)
+      }
+    },
+    [login],
+  )
+
+  const logout = useCallback(async () => {
+    ensureApiBaseUrl()
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (token) {
+      try {
+        await fetch(`${apiBaseUrl}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      } catch {
+        // Ignore logout errors; session will be cleared locally regardless.
+      }
+    }
+    clearSession()
+  }, [clearSession])
 
   const setCurrentWorkspace = useCallback((workspaceId: string) => {
     setAuthState((previous) => ({
@@ -249,30 +346,17 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const createWorkspace = useCallback(
     async (payload: CreateWorkspacePayload) => {
-      if (!authState.user) {
-        throw new Error('You need to be logged in to create a workspace.')
-      }
-
       if (!payload.name.trim()) {
         throw new Error('Workspace name is required.')
       }
 
-      await new Promise((resolve) => {
-        setTimeout(resolve, 250)
+      const response = await authorizedFetch('/workspaces', {
+        method: 'POST',
+        body: JSON.stringify(payload),
       })
 
-      const workspace: Workspace = {
-        id: createId(),
-        name: payload.name.trim(),
-        description: payload.description?.trim(),
-        ownerId: authState.user.id,
-        inviteCode: generateInviteCode(),
-        hasAccessKey: Boolean(payload.accessKey && payload.accessKey.trim().length > 0),
-        isPublic: false,
-        memberCount: 1,
-        role: 'owner',
-        createdAt: nowIso(),
-      }
+      const data = await response.json()
+      const workspace = mapWorkspace(data.workspace)
 
       setWorkspaces((previous) => [...previous, workspace])
       setProjectsByWorkspace((previous) => ({
@@ -286,92 +370,56 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
       return {
         workspace,
-        inviteCode: workspace.inviteCode,
-        accessKey: payload.accessKey?.trim() || undefined,
+        inviteCode: data.invite_code,
+        accessKey: data.access_key ?? undefined,
       }
     },
-    [authState.user],
+    [authorizedFetch],
   )
 
-  const joinWorkspace = useCallback(async (payload: JoinWorkspacePayload) => {
-    if (!authState.user) {
-      throw new Error('You need to be logged in to join a workspace.')
-    }
+  const joinWorkspace = useCallback(
+    async (payload: JoinWorkspacePayload) => {
+      const response = await authorizedFetch('/workspaces/join', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
 
-    const inviteCode = payload.inviteCode.trim().toUpperCase()
-    if (!inviteCode) {
-      throw new Error('Invite code is required.')
-    }
+      const data = await response.json()
+      const workspace = mapWorkspace(data.workspace)
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 250)
-    })
+      setWorkspaces((previous) => {
+        const existing = previous.find((item) => item.id === workspace.id)
+        if (existing) {
+          return previous.map((item) => (item.id === workspace.id ? workspace : item))
+        }
+        return [...previous, workspace]
+      })
 
-    const catalogEntry = mockCatalog.find((entry) => entry.inviteCode === inviteCode)
-    if (!catalogEntry) {
-      throw new Error('No workspace found for that invite code.')
-    }
+      const projects = await fetchProjectsForWorkspace(workspace.id)
+      setProjectsByWorkspace((previous) => ({
+        ...previous,
+        [workspace.id]: projects,
+      }))
 
-    if (catalogEntry.accessKey) {
-      if (!payload.accessKey?.trim()) {
-        throw new Error('This workspace requires an access key.')
-      }
-      if (payload.accessKey.trim() !== catalogEntry.accessKey) {
-        throw new Error('Access key is incorrect.')
-      }
-    }
+      setAuthState((previous) => ({
+        ...previous,
+        currentWorkspaceId: workspace.id,
+      }))
 
-    const alreadyJoined = workspaces.find((workspace) => workspace.id === catalogEntry.workspace.id)
-    if (alreadyJoined) {
-      setAuthState((previous) => ({ ...previous, currentWorkspaceId: alreadyJoined.id }))
-      return alreadyJoined
-    }
-
-    const newWorkspace: Workspace = {
-      ...catalogEntry.workspace,
-      role: 'member',
-      memberCount: catalogEntry.workspace.memberCount + 1,
-    }
-
-    setWorkspaces((previous) => [...previous, newWorkspace])
-    setProjectsByWorkspace((previous) => ({
-      ...previous,
-      [newWorkspace.id]: catalogEntry.projects,
-    }))
-    setAuthState((previous) => ({
-      ...previous,
-      currentWorkspaceId: newWorkspace.id,
-    }))
-
-    return newWorkspace
-  }, [authState.user, workspaces])
+      return workspace
+    },
+    [authorizedFetch, fetchProjectsForWorkspace],
+  )
 
   const createProject = useCallback(
     async (workspaceId: string, payload: CreateProjectPayload) => {
-      if (!authState.user) {
-        throw new Error('You need to be logged in to create a project.')
-      }
-
-      if (!payload.name.trim()) {
-        throw new Error('Project name is required.')
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 250)
+      const response = await authorizedFetch(`/workspaces/${workspaceId}/projects`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
       })
 
-      const project: Project = {
-        id: createId(),
-        name: payload.name.trim(),
-        description: payload.description?.trim(),
-        workspaceId,
-        createdBy: authState.user.id,
-        creatorName: [authState.user.firstName, authState.user.lastName].filter(Boolean).join(' ') || authState.user.email,
-        projectType: payload.projectType?.trim(),
-        tags: payload.tags?.filter((tag) => tag.trim().length > 0) || [],
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      }
+      const data = await response.json()
+      const project = mapProject(data)
 
       setProjectsByWorkspace((previous) => ({
         ...previous,
@@ -380,7 +428,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
       return project
     },
-    [authState.user],
+    [authorizedFetch],
   )
 
   const getProjects = useCallback(

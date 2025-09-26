@@ -5,9 +5,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import wordMark from '../assets/name.svg'
 import { useAuth } from '../hooks/useAuth'
 
-// Placeholder allow list until the eligibility check calls the backend.
-const approvedDomains = ['columbia.edu', 'omx.bio']
-
 function SignUp() {
   const navigate = useNavigate()
   const { register, clearError } = useAuth()
@@ -20,6 +17,8 @@ function SignUp() {
   const [accountAttempted, setAccountAttempted] = useState(false)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+  const [checkError, setCheckError] = useState<string | null>(null)
 
   const resetDecisions = () => {
     setEligibility('idle')
@@ -27,28 +26,56 @@ function SignUp() {
     setAccountAttempted(false)
     setRegisterError(null)
     setIsRegistering(false)
+    setCheckError(null)
   }
 
-  const handleCheckAccess = (event: FormEvent<HTMLFormElement>) => {
+  const handleCheckAccess = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setAccountAttempted(false)
 
     const normalizedEmail = email.trim().toLowerCase()
     if (!normalizedEmail) {
       setEligibility('idle')
+      setCheckError('Please enter your email before checking.')
       return
     }
 
-    const isApproved = approvedDomains.some((domain) => normalizedEmail.endsWith(`@${domain}`))
-    setEligibility(isApproved ? 'eligible' : 'ineligible')
-    setRequestSent(false)
-    setRegisterError(null)
-    setIsRegistering(false)
+    const apiBaseUrl = import.meta.env.VITE_API_URL
+    if (!apiBaseUrl) {
+      setCheckError('API base URL is not configured.')
+      return
+    }
 
-    if (!isApproved) {
-      setFullName('')
-      setPassword('')
-      setConfirmPassword('')
+    setIsChecking(true)
+    setCheckError(null)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/check-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to verify email eligibility right now.')
+      }
+
+      const data: { eligible: boolean } = await response.json()
+      setEligibility(data.eligible ? 'eligible' : 'ineligible')
+      setRequestSent(false)
+      setRegisterError(null)
+      setIsRegistering(false)
+
+      if (!data.eligible) {
+        setFullName('')
+        setPassword('')
+        setConfirmPassword('')
+      }
+    } catch (error) {
+      setEligibility('idle')
+      setCheckError(error instanceof Error ? error.message : 'Unable to verify email eligibility right now.')
+    } finally {
+      setIsChecking(false)
     }
   }
 
@@ -75,9 +102,11 @@ function SignUp() {
     setIsRegistering(true)
     const [firstName, ...rest] = fullName.trim().split(' ')
     const lastName = rest.join(' ')
+    const normalizedEmail = email.trim().toLowerCase()
+
     try {
       await register({
-        email,
+        email: normalizedEmail,
         password,
         firstName: firstName || undefined,
         lastName: lastName || undefined,
@@ -127,11 +156,18 @@ function SignUp() {
               </div>
               <button
                 type="submit"
-                className="w-full rounded-full bg-brand-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-primary-dark"
+                disabled={isChecking}
+                className="w-full rounded-full bg-brand-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Check email status
+                {isChecking ? 'Checking…' : 'Check email status'}
               </button>
             </form>
+
+            {checkError && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {checkError}
+              </div>
+            )}
 
             {eligibility !== 'idle' && (
               <div

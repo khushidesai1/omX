@@ -25,3 +25,12 @@ class UserRead(UserBase):
 class UserLogin(BaseModel):
   email: EmailStr
   password: str
+
+
+class EmailCheckRequest(BaseModel):
+  email: EmailStr
+
+
+class EmailEligibilityResponse(BaseModel):
+  email: EmailStr
+  eligible: bool
