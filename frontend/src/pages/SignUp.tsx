@@ -169,7 +169,7 @@ function SignUp() {
           <div className="space-y-2 border-b border-brand-primary/10 px-8 py-8">
             <h2 className="text-2xl font-semibold text-brand-text">Create your omX account</h2>
             <p className="text-brand-body">
-              We approve access based on institutional partnerships. Start by checking if your work email is on our allow list.
+              We approve access based on AziziLab partnerships and collaborations. Start by checking if your work email is on our allow list.
             </p>
           </div>
           <div className="space-y-6 px-8 py-8 text-left">
@@ -316,9 +316,9 @@ function SignUp() {
             <span className="hidden sm:inline">Return to home</span>
           </Link>
           <div className="space-y-4">
-            <h1 className="text-4xl font-semibold text-brand-text">Unlock collaborative omics workflows.</h1>
+            <h1 className="text-4xl font-semibold text-brand-text">Unlock collaborative and interactive omics workflows.</h1>
             <p className="text-lg text-brand-body">
-              Create workspaces, organize projects, and launch GPU-backed compute with confidence. We onboard new teams in cohorts to ensure security and support.
+              Create workspaces, organize projects, and build customized dashboards with confidence. We onboard new users on an access-by-request basis to ensure security and support.
             </p>
           </div>
           <div className="rounded-3xl border border-brand-primary/20 bg-white/85 p-6 shadow-lg">
@@ -328,7 +328,7 @@ function SignUp() {
             <ul className="mt-4 space-y-3 text-left text-brand-body">
               <li>• Invite approval within 2 business days.</li>
               <li>• Guided workspace setup and access key rotation.</li>
-              <li>• Optional RunPod compute credits for pilot projects.</li>
+              <li>• Modular dashboard creation and collaboration.</li>
             </ul>
           </div>
           <div className="hidden rounded-3xl border border-brand-primary/20 bg-white/80 p-6 shadow-xl md:block">
@@ -336,7 +336,7 @@ function SignUp() {
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-brand-text">Workspace visibility</span>
                 <span className="rounded-full bg-brand-primary/15 px-3 py-1 text-xs font-semibold text-brand-primary">
-                  Private · Columbia-only
+                  Private · Access-by-request
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -346,9 +346,9 @@ function SignUp() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-brand-text">RunPod credits</span>
+                <span className="font-semibold text-brand-text">Dashboard collaboration</span>
                 <span className="rounded-full bg-brand-primary/15 px-3 py-1 text-xs font-semibold text-brand-primary">
-                  Optional pilots
+                  Supported
                 </span>
               </div>
             </div>
