@@ -205,23 +205,8 @@ function WorkspaceSettings() {
                 navigate('/dashboard')
               }
             }}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-text transition hover:border-brand-primary hover:bg-brand-primary/10"
+            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
           >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M12 5l-4 5 4 5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
             Exit
           </button>
         </header>
