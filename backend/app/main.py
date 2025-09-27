@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import api_router
 from app.core.config import settings
-from app.db.init_db import init_db
 
 
 def _configure_cors(application: FastAPI) -> None:
@@ -26,11 +25,6 @@ def create_app() -> FastAPI:
   @application.get("/health", tags=["health"])
   async def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
-
-  @application.on_event("startup")
-  async def on_startup() -> None:  # pragma: no cover - lifecycle hook
-    if settings.database_url.startswith("sqlite+"):
-      await init_db()
 
   return application
 
