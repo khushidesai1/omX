@@ -6,12 +6,14 @@ interface WorkspaceSwitcherProps {
   onCreateWorkspace?: () => void
   onJoinWorkspace?: () => void
   onWorkspaceChange?: (workspaceId: string) => void
+  onWorkspaceSettings?: (workspaceId: string) => void
 }
 
 function WorkspaceSwitcher({
   onCreateWorkspace,
   onJoinWorkspace,
   onWorkspaceChange,
+  onWorkspaceSettings,
 }: WorkspaceSwitcherProps) {
   const { authState, workspaces, setCurrentWorkspace } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
@@ -71,6 +73,34 @@ function WorkspaceSwitcher({
               >
                 <span className="text-sm font-semibold">{workspace.name}</span>
                 <span className="text-xs text-brand-body">Role: {workspace.role}</span>
+                {workspace.id === authState.currentWorkspaceId && onWorkspaceSettings && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setIsOpen(false)
+                      onWorkspaceSettings(workspace.id)
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 rounded-full border border-brand-primary/30 px-3 py-1 text-xs font-semibold text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
+                  >
+                    Settings
+                    <svg
+                      className="h-3 w-3"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M10.94 4.44l-.11 1.8a3 3 0 011.3.75l1.7-.64 1.12 1.94-1.59 1a3 3 0 010 1.5l1.6 1-1.13 1.95-1.7-.64a3 3 0 01-1.3.75l.12 1.8h-2.24l.11-1.8a3 3 0 01-1.3-.75l-1.7.64-1.12-1.95 1.59-1a3 3 0 010-1.5l-1.59-1 1.12-1.94 1.7.64a3 3 0 011.3-.75l-.11-1.8h2.23z"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                )}
               </button>
             ))}
           </div>
