@@ -34,3 +34,11 @@ class EmailCheckRequest(BaseModel):
 class EmailEligibilityResponse(BaseModel):
   email: EmailStr
   eligible: bool
+
+
+class AccessRequest(BaseModel):
+  email: EmailStr
+
+
+class MessageResponse(BaseModel):
+  message: str

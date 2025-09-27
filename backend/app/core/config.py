@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +19,9 @@ class Settings(BaseSettings):
 
   cors_origins: List[AnyHttpUrl] = Field(default_factory=lambda: ["http://localhost:5173"])
   cors_origin_regex: Optional[str] = Field(default=None, alias="CORS_ORIGIN_REGEX")
+  sendgrid_api_key: Optional[str] = Field(default=None, alias="SENDGRID_API_KEY")
+  access_request_recipient: EmailStr = Field(default="khushi.desai@columbia.edu", alias="ACCESS_REQUEST_EMAIL")
+  access_request_sender: Optional[EmailStr] = Field(default=None, alias="ACCESS_REQUEST_SENDER")
 
 
 @lru_cache

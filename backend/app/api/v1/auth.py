@@ -16,12 +16,15 @@ from app.core.security import (
 from app.models import AllowedEmail, User, UserSession
 from app.schemas.auth import LogoutResponse, TokenResponse
 from app.schemas.user import (
+  AccessRequest,
   EmailCheckRequest,
   EmailEligibilityResponse,
+  MessageResponse,
   UserCreate,
   UserLogin,
   UserRead,
 )
+from app.services.email import send_access_request_email
 
 
 router = APIRouter()
@@ -119,3 +122,10 @@ async def check_email(payload: EmailCheckRequest, db: AsyncSession = Depends(get
   normalized_email = _normalize_email(payload.email)
   is_allowed = await _is_email_allowed(normalized_email, db)
   return EmailEligibilityResponse(email=normalized_email, eligible=is_allowed)
+
+
+@router.post("/request-access", response_model=MessageResponse)
+async def request_access(payload: AccessRequest) -> MessageResponse:
+  normalized_email = _normalize_email(payload.email)
+  send_access_request_email(normalized_email)
+  return MessageResponse(message="Access request submitted.")

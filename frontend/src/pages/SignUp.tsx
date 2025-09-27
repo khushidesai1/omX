@@ -13,20 +13,22 @@ function SignUp() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [eligibility, setEligibility] = useState<'idle' | 'eligible' | 'ineligible'>('idle')
-  const [requestSent, setRequestSent] = useState(false)
   const [accountAttempted, setAccountAttempted] = useState(false)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [isRegistering, setIsRegistering] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [checkError, setCheckError] = useState<string | null>(null)
+  const [requestError, setRequestError] = useState<string | null>(null)
+  const [requestSuccess, setRequestSuccess] = useState<string | null>(null)
 
   const resetDecisions = () => {
     setEligibility('idle')
-    setRequestSent(false)
     setAccountAttempted(false)
     setRegisterError(null)
     setIsRegistering(false)
     setCheckError(null)
+    setRequestError(null)
+    setRequestSuccess(null)
   }
 
   const handleCheckAccess = async (event: FormEvent<HTMLFormElement>) => {
@@ -62,9 +64,10 @@ function SignUp() {
 
       const data: { eligible: boolean } = await response.json()
       setEligibility(data.eligible ? 'eligible' : 'ineligible')
-      setRequestSent(false)
       setRegisterError(null)
       setIsRegistering(false)
+      setRequestSuccess(null)
+      setRequestError(null)
 
       if (!data.eligible) {
         setFullName('')
@@ -79,8 +82,44 @@ function SignUp() {
     }
   }
 
-  const handleRequestAccess = () => {
-    setRequestSent(true)
+  const handleRequestAccess = async () => {
+    setRequestError(null)
+    setRequestSuccess(null)
+
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
+      setRequestError('Please enter your email before requesting access.')
+      return
+    }
+
+    const apiBaseUrl = import.meta.env.VITE_API_URL
+    if (!apiBaseUrl) {
+      setRequestError('API base URL is not configured.')
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/auth/request-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        const message = typeof data?.message === 'string' ? data.message : 'Unable to submit request right now.'
+        throw new Error(message)
+      }
+
+      const data = await response.json().catch(() => null)
+      if (data?.message) {
+        setRequestSuccess(data.message)
+      } else {
+        setRequestSuccess('Request sent! We will review and respond within two business days.')
+      }
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : 'Unable to submit request right now.')
+    }
   }
 
   const handleCreateAccount = async (event: FormEvent<HTMLFormElement>) => {
@@ -251,10 +290,9 @@ function SignUp() {
                 >
                   Request access from omX team
                 </button>
-                {requestSent ? (
-                  <p className="text-sm text-brand-body">
-                    Request sent! We will review and respond within two business days.
-                  </p>
+                {requestError && <p className="text-sm text-amber-600">{requestError}</p>}
+                {requestSuccess ? (
+                  <p className="text-sm text-brand-body">{requestSuccess}</p>
                 ) : (
                   <p className="text-sm text-brand-body">
                     Not on the list yet? Send a request and we will verify your project details.
