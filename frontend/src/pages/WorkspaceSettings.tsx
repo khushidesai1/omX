@@ -48,12 +48,12 @@ function WorkspaceSettings() {
 
     fetchWorkspaceDetail(workspaceId)
       .then((workspace) => {
-        setDetail(workspace)
-        setFormState({
-          name: workspace.name,
-          slug: workspace.slug,
+       setDetail(workspace)
+       setFormState({
+         name: workspace.name,
+         slug: workspace.slug,
           description: workspace.description ?? '',
-          accessKey: workspace.hasAccessKey ? '•••••••' : '',
+          accessKey: workspace.accessKey ?? '',
           isPublic: workspace.isPublic,
         })
       })
@@ -100,7 +100,7 @@ function WorkspaceSettings() {
       name: formState.name,
       description: formState.description || undefined,
       slug: formState.slug,
-      accessKey: formState.accessKey === '•••••••' ? undefined : formState.accessKey,
+      accessKey: formState.accessKey,
       isPublic: formState.isPublic,
     }
 
@@ -112,14 +112,16 @@ function WorkspaceSettings() {
           ? {
               ...previous,
               ...updated,
+              accessKey: payload.accessKey ?? previous.accessKey,
               members: previous.members,
               projectCount: previous.projectCount,
             }
           : null,
       )
-      if (payload.accessKey === undefined && formState.accessKey === '•••••••') {
-        setFormState((previous) => ({ ...previous, accessKey: '•••••••' }))
-      }
+      setFormState((previous) => ({
+        ...previous,
+        accessKey: payload.accessKey ?? '',
+      }))
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : 'Unable to save workspace settings.')
     } finally {

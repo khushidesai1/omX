@@ -25,6 +25,7 @@ export interface WorkspaceMember {
 export interface WorkspaceDetail extends Workspace {
   members: WorkspaceMember[]
   projectCount: number
+  accessKey?: string | null
 }
 
 export interface CreateWorkspacePayload {

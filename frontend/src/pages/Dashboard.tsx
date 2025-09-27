@@ -71,6 +71,7 @@ function Dashboard() {
               onWorkspaceChange={() => navigate('/dashboard')}
               onCreateWorkspace={() => navigate('/workspaces')}
               onJoinWorkspace={() => navigate('/workspaces')}
+              onWorkspaceSettings={(workspaceId) => navigate(`/workspace/${workspaceId}/settings`)}
             />
             <div className="flex items-center gap-3 rounded-full border border-brand-primary/20 bg-white/80 px-4 py-2 shadow">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-primary/15 text-sm font-semibold text-brand-primary">
@@ -118,6 +119,30 @@ function Dashboard() {
                 <span aria-hidden>＋</span>
                 New project
               </button>
+              {currentWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/workspace/${currentWorkspace.id}/settings`)}
+                  className="inline-flex items-center gap-2 rounded-full border border-brand-primary/20 bg-white px-4 py-2 text-sm font-semibold text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M10.94 4.44l-.11 1.8a3 3 0 011.3.75l1.7-.64 1.12 1.94-1.59 1a3 3 0 010 1.5l1.6 1-1.13 1.95-1.7-.64a3 3 0 01-1.3.75l.12 1.8h-2.24l.11-1.8a3 3 0 01-1.3-.75l-1.7.64-1.12-1.95 1.59-1a3 3 0 010-1.5l-1.59-1 1.12-1.94 1.7.64a3 3 0 011.3-.75l-.11-1.8h2.23z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Settings
+                </button>
+              )}
             </div>
           </section>
 
