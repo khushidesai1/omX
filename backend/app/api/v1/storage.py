@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,8 +132,7 @@ async def create_storage_connection(
 
 @router.delete(
   "/connections/{connection_id}",
-  status_code=status.HTTP_204_NO_CONTENT,
-  response_class=Response,
+  status_code=status.HTTP_200_OK,
 )
 async def delete_storage_connection(
   workspace_id: str,
@@ -142,7 +141,7 @@ async def delete_storage_connection(
   workspace: Workspace = Depends(workspace_access("member")),
   current_user: User = Depends(get_current_active_user),
   db: AsyncSession = Depends(get_db),
-) -> None:
+) -> dict[str, str]:
   project = await _get_project(workspace, project_id, db)
   connection_stmt = select(ProjectStorageConnection).where(
     and_(
@@ -157,7 +156,7 @@ async def delete_storage_connection(
 
   await db.delete(connection)
   await db.commit()
-  return None
+  return {"message": "Storage connection deleted"}
 
 
 @router.get("/buckets", response_model=StorageBucketListResponse)
@@ -257,8 +256,7 @@ async def create_download_url(
 
 @router.delete(
   "/objects",
-  status_code=status.HTTP_204_NO_CONTENT,
-  response_class=Response,
+  status_code=status.HTTP_200_OK,
 )
 async def delete_object(
   payload: StorageObjectDeleteRequest,
@@ -266,7 +264,7 @@ async def delete_object(
   project_id: str,
   workspace: Workspace = Depends(workspace_access("member")),
   db: AsyncSession = Depends(get_db),
-) -> None:
+) -> dict[str, str]:
   project = await _get_project(workspace, project_id, db)
   connection = await _ensure_bucket_link(project, payload.bucket_name, db)
 
@@ -279,4 +277,4 @@ async def delete_object(
   except GCSIntegrationError as exc:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
-  return None
+  return {"message": "Object deleted"}
