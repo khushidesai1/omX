@@ -187,11 +187,43 @@ function WorkspaceSettings() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-brand-primary/10 to-white py-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-semibold text-brand-text">Workspace settings</h1>
-          <p className="text-sm text-brand-body">
-            Manage workspace metadata, review member access, and keep your collaboration organized.
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold text-brand-text">Workspace settings</h1>
+            <p className="text-sm text-brand-body">
+              Manage workspace metadata, review member access, and keep your collaboration organized.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (previousPath) {
+                window.location.href = previousPath
+              } else if (history.length > 1) {
+                navigate(-1)
+              } else {
+                navigate('/dashboard')
+              }
+            }}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-text transition hover:border-brand-primary hover:bg-brand-primary/10"
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 5l-4 5 4 5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Exit
+          </button>
         </header>
 
         <form

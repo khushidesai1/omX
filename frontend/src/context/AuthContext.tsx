@@ -156,6 +156,7 @@ const mapWorkspaceDetail = (payload: any): WorkspaceDetail => ({
   createdAt: payload.created_at,
   members: Array.isArray(payload.members) ? payload.members.map(mapWorkspaceMember) : [],
   projectCount: payload.project_count ?? 0,
+  accessKey: payload.access_key ?? null,
 })
 
 const parseErrorMessage = async (response: Response) => {
