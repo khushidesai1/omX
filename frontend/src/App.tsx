@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import ProjectDetailLayout from './pages/project-detail/ProjectDetailLayout'
 import ProjectDataView from './pages/project-detail/ProjectDataView'
 import ProjectDashboardsView from './pages/project-detail/ProjectDashboardsView'
+import WorkspaceSettings from './pages/WorkspaceSettings'
 
 function App() {
   return (
@@ -32,6 +33,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workspace/:workspaceId/settings"
+          element={
+            <ProtectedRoute>
+              <WorkspaceSettings />
             </ProtectedRoute>
           }
         />

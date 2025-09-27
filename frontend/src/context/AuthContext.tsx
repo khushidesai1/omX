@@ -12,9 +12,20 @@ import type { RegisterData, AuthState, User } from '../types/auth'
 import type {
   CreateWorkspacePayload,
   JoinWorkspacePayload,
+  UpdateWorkspacePayload,
   Workspace,
+  WorkspaceDetail,
+  WorkspaceMember,
 } from '../types/workspace'
 import type { CreateProjectPayload, Project } from '../types/project'
+import type {
+  StorageConnection,
+  StorageObjectDeleteRequest,
+  StorageObjectListResponse,
+  StorageObjectSummary,
+  StorageSignedUrlRequest,
+  StorageSignedUrlResponse,
+} from '../types/storage'
 
 interface AuthContextValue {
   authState: AuthState
@@ -30,6 +41,31 @@ interface AuthContextValue {
   joinWorkspace: (payload: JoinWorkspacePayload) => Promise<Workspace>
   createProject: (workspaceId: string, payload: CreateProjectPayload) => Promise<Project>
   getProjects: (workspaceId: string) => Project[]
+  listStorageConnections: (workspaceId: string, projectId: string) => Promise<StorageConnection[]>
+  listStorageObjects: (
+    workspaceId: string,
+    projectId: string,
+    bucketName: string,
+    prefix?: string,
+  ) => Promise<StorageObjectListResponse>
+  createStorageUploadUrl: (
+    workspaceId: string,
+    projectId: string,
+    payload: StorageSignedUrlRequest,
+  ) => Promise<StorageSignedUrlResponse>
+  createStorageDownloadUrl: (
+    workspaceId: string,
+    projectId: string,
+    payload: StorageSignedUrlRequest,
+  ) => Promise<StorageSignedUrlResponse>
+  deleteStorageObject: (
+    workspaceId: string,
+    projectId: string,
+    payload: StorageObjectDeleteRequest,
+  ) => Promise<void>
+  fetchWorkspaceDetail: (workspaceId: string) => Promise<WorkspaceDetail>
+  updateWorkspace: (workspaceId: string, payload: UpdateWorkspacePayload) => Promise<Workspace>
+  deleteWorkspace: (workspaceId: string) => Promise<void>
   clearError: () => void
 }
 
@@ -76,6 +112,50 @@ const mapProject = (payload: any): Project => ({
   tags: payload.tags ?? [],
   createdAt: payload.created_at,
   updatedAt: payload.updated_at,
+})
+
+const mapStorageConnection = (payload: any): StorageConnection => ({
+  id: payload.id,
+  projectId: payload.project_id,
+  bucketName: payload.bucket_name,
+  gcpProjectId: payload.gcp_project_id ?? undefined,
+  prefix: payload.prefix ?? undefined,
+  description: payload.description ?? undefined,
+  createdBy: payload.created_by,
+  createdAt: payload.created_at,
+  updatedAt: payload.updated_at,
+})
+
+const mapStorageObject = (payload: any): StorageObjectSummary => ({
+  name: payload.name,
+  size: payload.size ?? undefined,
+  updatedAt: payload.updated_at ?? undefined,
+  contentType: payload.content_type ?? undefined,
+  storageClass: payload.storage_class ?? undefined,
+})
+
+const mapWorkspaceMember = (payload: any): WorkspaceMember => ({
+  userId: payload.user_id,
+  email: payload.email,
+  firstName: payload.first_name ?? undefined,
+  lastName: payload.last_name ?? undefined,
+  role: payload.role,
+  joinedAt: payload.joined_at,
+})
+
+const mapWorkspaceDetail = (payload: any): WorkspaceDetail => ({
+  id: payload.id,
+  name: payload.name,
+  description: payload.description ?? undefined,
+  ownerId: payload.owner_id,
+  slug: payload.slug,
+  hasAccessKey: Boolean(payload.access_key),
+  isPublic: payload.is_public,
+  memberCount: payload.members ? payload.members.length : payload.member_count ?? 0,
+  role: 'member',
+  createdAt: payload.created_at,
+  members: Array.isArray(payload.members) ? payload.members.map(mapWorkspaceMember) : [],
+  projectCount: payload.project_count ?? 0,
 })
 
 const parseErrorMessage = async (response: Response) => {
@@ -438,6 +518,174 @@ function AuthProvider({ children }: { children: ReactNode }) {
     [authorizedFetch],
   )
 
+  const listStorageConnections = useCallback(
+    async (workspaceId: string, projectId: string) => {
+      const response = await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/connections`,
+      )
+      const data = await response.json()
+      return (data.connections ?? []).map(mapStorageConnection)
+    },
+    [authorizedFetch],
+  )
+
+  const listStorageObjects = useCallback(
+    async (workspaceId: string, projectId: string, bucketName: string, prefix?: string) => {
+      const searchParams = new URLSearchParams({ bucket: bucketName })
+      if (prefix) {
+        searchParams.set('prefix', prefix)
+      }
+      const response = await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/objects?${searchParams.toString()}`,
+      )
+      const data = await response.json()
+      const files: StorageObjectSummary[] = (data.files ?? []).map(mapStorageObject)
+      const folders: string[] = Array.isArray(data.folders) ? data.folders : []
+      return { folders, files }
+    },
+    [authorizedFetch],
+  )
+
+  const createStorageUploadUrl = useCallback(
+    async (
+      workspaceId: string,
+      projectId: string,
+      payload: StorageSignedUrlRequest,
+    ) => {
+      const response = await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/upload-url`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            bucket_name: payload.bucketName,
+            object_path: payload.objectPath,
+            content_type: payload.contentType,
+            expires_in: payload.expiresIn,
+          }),
+        },
+      )
+      const data = await response.json()
+      return {
+        url: data.url as string,
+        expiresIn:
+          typeof data.expires_in === 'number'
+            ? data.expires_in
+            : typeof data.expires_in === 'string'
+            ? Number.parseInt(data.expires_in, 10)
+            : payload.expiresIn ?? 0,
+      }
+    },
+    [authorizedFetch],
+  )
+
+  const createStorageDownloadUrl = useCallback(
+    async (
+      workspaceId: string,
+      projectId: string,
+      payload: StorageSignedUrlRequest,
+    ) => {
+      const response = await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/download-url`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            bucket_name: payload.bucketName,
+            object_path: payload.objectPath,
+            expires_in: payload.expiresIn,
+          }),
+        },
+      )
+      const data = await response.json()
+      return {
+        url: data.url as string,
+        expiresIn:
+          typeof data.expires_in === 'number'
+            ? data.expires_in
+            : typeof data.expires_in === 'string'
+            ? Number.parseInt(data.expires_in, 10)
+            : payload.expiresIn ?? 0,
+      }
+    },
+    [authorizedFetch],
+  )
+
+  const deleteStorageObject = useCallback(
+    async (
+      workspaceId: string,
+      projectId: string,
+      payload: StorageObjectDeleteRequest,
+    ) => {
+      await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/objects`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({
+            bucket_name: payload.bucketName,
+            object_path: payload.objectPath,
+          }),
+        },
+      )
+    },
+    [authorizedFetch],
+  )
+
+  const fetchWorkspaceDetail = useCallback(
+    async (workspaceId: string) => {
+      const response = await authorizedFetch(`/workspaces/${workspaceId}`)
+      const data = await response.json()
+      const detail = mapWorkspaceDetail(data)
+      const viewerRole = detail.ownerId === authState.user?.id
+        ? 'owner'
+        : detail.members.find((member) => member.userId === authState.user?.id)?.role ?? 'member'
+      return { ...detail, role: viewerRole }
+    },
+    [authorizedFetch, authState.user?.id],
+  )
+
+  const updateWorkspace = useCallback(
+    async (workspaceId: string, payload: UpdateWorkspacePayload) => {
+      const response = await authorizedFetch(`/workspaces/${workspaceId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: payload.name,
+          description: payload.description,
+          access_key: payload.accessKey,
+          slug: payload.slug,
+          is_public: payload.isPublic,
+        }),
+      })
+      const data = await response.json()
+      const workspace = mapWorkspace(data)
+      setWorkspaces((previous) =>
+        previous.map((existing) => (existing.id === workspace.id ? workspace : existing)),
+      )
+      return workspace
+    },
+    [authorizedFetch],
+  )
+
+  const deleteWorkspace = useCallback(
+    async (workspaceId: string) => {
+      await authorizedFetch(`/workspaces/${workspaceId}`, { method: 'DELETE' })
+
+      setWorkspaces((previous) => {
+        const next = previous.filter((workspace) => workspace.id !== workspaceId)
+        setAuthState((auth) => ({
+          ...auth,
+          currentWorkspaceId:
+            auth.currentWorkspaceId === workspaceId ? next[0]?.id ?? null : auth.currentWorkspaceId,
+        }))
+        return next
+      })
+
+      setProjectsByWorkspace((previous) => {
+        const { [workspaceId]: _removed, ...rest } = previous
+        return rest
+      })
+    },
+    [authorizedFetch, setProjectsByWorkspace, setAuthState],
+  )
+
   const getProjects = useCallback(
     (workspaceId: string) => projectsByWorkspace[workspaceId] ?? [],
     [projectsByWorkspace],
@@ -456,6 +704,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
       joinWorkspace,
       createProject,
       getProjects,
+      listStorageConnections,
+      listStorageObjects,
+      createStorageUploadUrl,
+      createStorageDownloadUrl,
+      deleteStorageObject,
+      fetchWorkspaceDetail,
+      updateWorkspace,
+      deleteWorkspace,
       clearError,
     }),
     [
@@ -470,6 +726,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
       joinWorkspace,
       createProject,
       getProjects,
+      listStorageConnections,
+      listStorageObjects,
+      createStorageUploadUrl,
+      createStorageDownloadUrl,
+      deleteStorageObject,
+      fetchWorkspaceDetail,
+      updateWorkspace,
+      deleteWorkspace,
       clearError,
     ],
   )

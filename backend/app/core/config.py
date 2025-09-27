@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import AnyHttpUrl, EmailStr, Field
+from pydantic import AnyHttpUrl, EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,19 @@ class Settings(BaseSettings):
   sendgrid_api_key: Optional[str] = Field(default=None, alias="SENDGRID_API_KEY")
   access_request_recipient: EmailStr = Field(default="khushi.desai@columbia.edu", alias="ACCESS_REQUEST_EMAIL")
   access_request_sender: Optional[EmailStr] = Field(default=None, alias="ACCESS_REQUEST_SENDER")
+
+  gcs_project_id: Optional[str] = Field(default=None, alias="GCS_PROJECT_ID")
+  gcs_credentials_path: Optional[str] = Field(default=None, alias="GCS_CREDENTIALS_PATH")
+  gcs_signed_url_ttl_seconds: int = Field(default=900, alias="GCS_SIGNED_URL_TTL_SECONDS")
+  gcs_upload_url_ttl_seconds: int = Field(default=900, alias="GCS_UPLOAD_URL_TTL_SECONDS")
+
+  @field_validator("cors_origins", mode="before")
+  @classmethod
+  def _split_cors_origins(cls, value: AnyHttpUrl | str | List[AnyHttpUrl]) -> List[AnyHttpUrl] | str:
+    if isinstance(value, str):
+      cleaned = [origin.strip() for origin in value.split(",") if origin.strip()]
+      return cleaned or value
+    return value
 
 
 @lru_cache

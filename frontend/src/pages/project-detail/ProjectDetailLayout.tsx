@@ -101,7 +101,7 @@ function ProjectDetailLayout() {
           userEmail={authState.user?.email ?? ''}
           userInitials={userInitials}
           onBackToWorkspace={() => navigate('/dashboard')}
-          onWorkspaceSettings={() => navigate('/workspaces')}
+          onWorkspaceSettings={() => navigate(`/workspace/${workspaceId}/settings`)}
           onLogout={handleLogout}
         />
         <div className="flex-1 overflow-y-auto px-6 pb-10 pt-6 sm:px-10">

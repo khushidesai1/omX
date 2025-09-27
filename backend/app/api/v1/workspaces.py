@@ -9,12 +9,14 @@ from app.models import Project, User, Workspace, WorkspaceMember
 from app.schemas.workspace import (
   WorkspaceCreate,
   WorkspaceCreateResponse,
+  WorkspaceDeleteResponse,
   WorkspaceDetail,
   WorkspaceJoinRequest,
   WorkspaceJoinResponse,
   WorkspaceListResponse,
   WorkspaceMemberRead,
   WorkspaceRead,
+  WorkspaceUpdate,
 )
 from app.utils.strings import generate_slug, slugify
 
@@ -254,3 +256,75 @@ async def get_workspace_detail(
     project_count=project_count,
     created_at=workspace.created_at,
   )
+
+
+@router.put("/{workspace_id}", response_model=WorkspaceRead)
+async def update_workspace(
+  workspace_id: str,
+  payload: WorkspaceUpdate,
+  current_user: User = Depends(get_current_active_user),
+  db: AsyncSession = Depends(get_db),
+) -> WorkspaceRead:
+  workspace_query = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+  workspace = workspace_query.scalar_one_or_none()
+  if not workspace:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+
+  if workspace.owner_id != current_user.id:
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners can update the workspace")
+
+  if payload.name is not None:
+    stripped = payload.name.strip()
+    if not stripped:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Workspace name cannot be empty")
+    workspace.name = stripped
+
+  if payload.description is not None:
+    workspace.description = payload.description.strip() if payload.description else None
+
+  if payload.access_key is not None:
+    workspace.access_key = payload.access_key.strip() if payload.access_key else None
+
+  if payload.is_public is not None:
+    workspace.is_public = payload.is_public
+
+  if payload.slug is not None:
+    new_slug = slugify(payload.slug)[:64]
+    if not new_slug:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slug cannot be empty")
+    duplicate_query = await db.execute(
+      select(Workspace.id).where(and_(Workspace.slug == new_slug, Workspace.id != workspace.id))
+    )
+    if duplicate_query.scalar_one_or_none():
+      raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already in use")
+    workspace.slug = new_slug
+
+  await db.commit()
+  await db.refresh(workspace)
+
+  member_count_query = await db.execute(
+    select(func.count(WorkspaceMember.id)).where(WorkspaceMember.workspace_id == workspace.id)
+  )
+  member_count = member_count_query.scalar_one()
+
+  return _workspace_to_read(workspace, member_count, "owner")
+
+
+@router.delete("/{workspace_id}", response_model=WorkspaceDeleteResponse, status_code=status.HTTP_200_OK)
+async def delete_workspace(
+  workspace_id: str,
+  current_user: User = Depends(get_current_active_user),
+  db: AsyncSession = Depends(get_db),
+) -> WorkspaceDeleteResponse:
+  workspace_query = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+  workspace = workspace_query.scalar_one_or_none()
+  if not workspace:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+
+  if workspace.owner_id != current_user.id:
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners can delete the workspace")
+
+  await db.delete(workspace)
+  await db.commit()
+
+  return WorkspaceDeleteResponse(message="Workspace deleted successfully")

@@ -14,6 +14,14 @@ class WorkspaceCreate(WorkspaceBase):
   slug: Optional[str] = None
 
 
+class WorkspaceUpdate(BaseModel):
+  name: Optional[str] = None
+  description: Optional[str] = None
+  access_key: Optional[str] = None
+  slug: Optional[str] = None
+  is_public: Optional[bool] = None
+
+
 class WorkspaceRead(WorkspaceBase):
   id: str
   owner_id: str
@@ -70,4 +78,8 @@ class WorkspaceJoinRequest(BaseModel):
 
 class WorkspaceJoinResponse(BaseModel):
   workspace: WorkspaceRead
+  message: str
+
+
+class WorkspaceDeleteResponse(BaseModel):
   message: str

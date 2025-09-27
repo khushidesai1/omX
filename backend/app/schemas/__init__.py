@@ -1,14 +1,29 @@
 from .auth import LogoutResponse, TokenResponse
 from .project import ProjectCreate, ProjectListResponse, ProjectRead, ProjectUpdate
+from .storage import (
+  StorageBucketListResponse,
+  StorageBucketSummary,
+  StorageConnectionCreate,
+  StorageConnectionListResponse,
+  StorageConnectionRead,
+  StorageObjectDeleteRequest,
+  StorageObjectListRequest,
+  StorageObjectListResponse,
+  StorageObjectSummary,
+  StorageSignedUrlRequest,
+  StorageSignedUrlResponse,
+)
 from .user import UserCreate, UserLogin, UserRead
 from .workspace import (
   WorkspaceCreate,
   WorkspaceCreateResponse,
+  WorkspaceDeleteResponse,
   WorkspaceDetail,
   WorkspaceJoinRequest,
   WorkspaceJoinResponse,
   WorkspaceListResponse,
   WorkspaceRead,
+  WorkspaceUpdate,
 )
 
 __all__ = [
@@ -24,8 +39,21 @@ __all__ = [
   "WorkspaceCreate",
   "WorkspaceCreateResponse",
   "WorkspaceDetail",
+  "WorkspaceUpdate",
   "WorkspaceJoinRequest",
   "WorkspaceJoinResponse",
   "WorkspaceListResponse",
   "WorkspaceRead",
+  "WorkspaceDeleteResponse",
+  "StorageConnectionCreate",
+  "StorageConnectionRead",
+  "StorageConnectionListResponse",
+  "StorageBucketSummary",
+  "StorageBucketListResponse",
+  "StorageObjectSummary",
+  "StorageObjectListRequest",
+  "StorageObjectListResponse",
+  "StorageSignedUrlRequest",
+  "StorageSignedUrlResponse",
+  "StorageObjectDeleteRequest",
 ]

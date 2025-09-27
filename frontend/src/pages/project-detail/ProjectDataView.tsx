@@ -1,179 +1,44 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { ChangeEvent } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useParams } from 'react-router-dom'
 
+import { useAuth } from '../../hooks/useAuth'
 import type { Project } from '../../types/project'
+import type { StorageConnection } from '../../types/storage'
 
 interface ProjectOutletContext {
   project: Project
   workspaceName: string
 }
 
-interface ProjectFile {
-  id: string
+interface FolderEntry {
+  key: string
   name: string
-  sizeBytes: number
-  updatedAt: string
-  owner: string
-  kind: 'file' | 'image' | 'notebook' | 'folder'
-  description?: string
-  url?: string
+  segments: string[]
+  fullPrefix: string
 }
 
-interface Dataset {
-  id: string
+interface FileEntry {
+  key: string
   name: string
-  description?: string
-  files: ProjectFile[]
+  objectPath: string
+  size?: number
+  updatedAt?: string
+  contentType?: string
+  storageClass?: string
 }
 
-interface Collection {
-  id: string
-  name: string
-  path: string
-  owner: string
-  datasets: Dataset[]
-}
-
-const defaultCollections: Collection[] = [
-  {
-    id: 'azizi-lab',
-    name: 'azizilab-aml',
-    path: 'azizilab-aml/khushi-crc',
-    owner: 'Alex Rivers',
-    datasets: [
-      {
-        id: 'xenium-sample-1',
-        name: 'xenium_outs_sample1',
-        description: 'Spatial transcriptomics output for CRC sample 1.',
-        files: [
-          {
-            id: 'file-exp-1',
-            name: 'experiment.xenium',
-            sizeBytes: 2_456_789_012,
-            updatedAt: '2024-02-02T14:20:00Z',
-            owner: 'Alex Rivers',
-            kind: 'file',
-            description: 'Primary experiment manifest generated from Xenium run.',
-          },
-          {
-            id: 'file-morph-1',
-            name: 'morphology.tiff',
-            sizeBytes: 856_322_189,
-            updatedAt: '2024-01-30T10:05:00Z',
-            owner: 'Jamie Lin',
-            kind: 'image',
-            description: 'High-resolution morphology reference for segmentation overlay.',
-          },
-          {
-            id: 'file-cells-1',
-            name: 'cells.zarr',
-            sizeBytes: 1_276_500_431,
-            updatedAt: '2024-01-28T09:12:00Z',
-            owner: 'Taylor Chen',
-            kind: 'file',
-            description: 'Cell-level expression matrix stored as chunked Zarr.',
-          },
-          {
-            id: 'file-metadata-1',
-            name: 'metadata.json',
-            sizeBytes: 98_765,
-            updatedAt: '2024-01-28T09:05:00Z',
-            owner: 'Alex Rivers',
-            kind: 'file',
-            description: 'Pipeline configuration and annotations.',
-          },
-        ],
-      },
-      {
-        id: 'xenium-sample-2',
-        name: 'xenium_outs_sample2',
-        description: 'Matched CRC sample 2 processed through the same workflow.',
-        files: [
-          {
-            id: 'file-exp-2',
-            name: 'experiment.xenium',
-            sizeBytes: 2_278_901_233,
-            updatedAt: '2024-02-04T13:50:00Z',
-            owner: 'You',
-            kind: 'file',
-            description: 'Experiment manifest uploaded from local workstation.',
-          },
-          {
-            id: 'file-cells-2',
-            name: 'cells.zarr',
-            sizeBytes: 1_156_340_210,
-            updatedAt: '2024-02-03T17:12:00Z',
-            owner: 'Jamie Lin',
-            kind: 'file',
-          },
-          {
-            id: 'file-notebook-2',
-            name: 'qc-review.ipynb',
-            sizeBytes: 4_239_812,
-            updatedAt: '2024-02-05T08:32:00Z',
-            owner: 'You',
-            kind: 'notebook',
-            description: 'Quality control checks for sequencing depth and spatial coverage.',
-          },
-        ],
-      },
-      {
-        id: 'xenium-sample-3',
-        name: 'xenium_outs_sample3',
-        description: 'Fresh import awaiting QC.',
-        files: [
-          {
-            id: 'file-readme-3',
-            name: 'README.md',
-            sizeBytes: 12_345,
-            updatedAt: '2024-02-08T09:45:00Z',
-            owner: 'Taylor Chen',
-            kind: 'file',
-            description: 'Checklist for what remains to be validated before analysis.',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'public-releases',
-    name: 'public-datasets',
-    path: 'shared/public',
-    owner: 'Shared',
-    datasets: [
-      {
-        id: 'atlas',
-        name: 'spatial_atlas_release',
-        description: 'Reference atlas for benchmarking segmentation performance.',
-        files: [
-          {
-            id: 'file-atlas',
-            name: 'atlas-summary.parquet',
-            sizeBytes: 678_901_233,
-            updatedAt: '2023-12-20T11:22:00Z',
-            owner: 'Data Platform',
-            kind: 'file',
-          },
-          {
-            id: 'file-figures',
-            name: 'figures.zip',
-            sizeBytes: 145_332_120,
-            updatedAt: '2023-12-18T15:42:00Z',
-            owner: 'Data Platform',
-            kind: 'file',
-          },
-        ],
-      },
-    ],
-  },
-]
-
-const firstCollection = defaultCollections[0] ?? null
-const firstDataset = firstCollection?.datasets[0] ?? null
-const firstFile = firstDataset?.files[0] ?? null
-
-const formatBytes = (bytes: number) => {
+const bytesFormatter = (bytes?: number) => {
+  if (bytes == null) {
+    return '—'
+  }
   if (bytes === 0) {
     return '0 B'
   }
@@ -183,146 +48,300 @@ const formatBytes = (bytes: number) => {
   return `${size.toFixed(size >= 10 || index === 0 ? 0 : 1)} ${units[index]}`
 }
 
-const updatedAtFormatter = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+const formatDateTime = (value?: string) => {
+  if (!value) {
+    return '—'
+  }
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value))
+  } catch {
+    return value
+  }
+}
 
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
+const ensureTrailingSlash = (value?: string) => {
+  if (!value) {
+    return ''
+  }
+  const trimmed = value.replace(/^\/+/, '').replace(/\/+$/, '')
+  return trimmed.length > 0 ? `${trimmed}/` : ''
+}
+
+const composePrefix = (basePrefix: string, segments: string[]) => {
+  if (segments.length === 0) {
+    return basePrefix
+  }
+  const joined = segments.map((segment) => segment.replace(/\/+$/, '')).join('/')
+  return `${basePrefix}${joined}/`
+}
+
+const stripBasePrefix = (fullPath: string, basePrefix: string) => {
+  if (!basePrefix) {
+    return fullPath
+  }
+  return fullPath.startsWith(basePrefix) ? fullPath.slice(basePrefix.length) : fullPath
+}
 
 function ProjectDataView() {
   const { project } = useOutletContext<ProjectOutletContext>()
+  const { workspaceId, projectId } = useParams()
+  const {
+    listStorageConnections,
+    listStorageObjects,
+    createStorageUploadUrl,
+    createStorageDownloadUrl,
+    deleteStorageObject,
+  } = useAuth()
+
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const localFileUrlsRef = useRef<Set<string>>(new Set())
+  const [connections, setConnections] = useState<StorageConnection[]>([])
+  const [isLoadingConnections, setIsLoadingConnections] = useState(true)
+  const [connectionsError, setConnectionsError] = useState<string | null>(null)
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
 
-  const [collections, setCollections] = useState<Collection[]>(defaultCollections)
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(firstCollection?.id ?? null)
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(firstDataset?.id ?? null)
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(firstFile?.id ?? null)
+  const [folderPath, setFolderPath] = useState<string[]>([])
+  const [folders, setFolders] = useState<FolderEntry[]>([])
+  const [files, setFiles] = useState<FileEntry[]>([])
+  const [selectedFileKey, setSelectedFileKey] = useState<string | null>(null)
+  const [listingError, setListingError] = useState<string | null>(null)
+  const [isListing, setIsListing] = useState(false)
 
-  const selectedCollection = useMemo(
-    () => collections.find((collection) => collection.id === selectedCollectionId) ?? null,
-    [collections, selectedCollectionId],
-  )
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const selectedDataset = useMemo(
-    () => selectedCollection?.datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
-    [selectedCollection, selectedDatasetId],
+  const selectedConnection = useMemo(
+    () => connections.find((connection) => connection.id === selectedConnectionId) ?? null,
+    [connections, selectedConnectionId],
   )
 
   const selectedFile = useMemo(
-    () => selectedDataset?.files.find((file) => file.id === selectedFileId) ?? null,
-    [selectedDataset, selectedFileId],
+    () => files.find((file) => file.key === selectedFileKey) ?? null,
+    [files, selectedFileKey],
   )
 
   useEffect(() => {
-    setSelectedDatasetId((previous) => {
-      if (previous && selectedCollection?.datasets.some((dataset) => dataset.id === previous)) {
-        return previous
-      }
-      return selectedCollection?.datasets[0]?.id ?? null
-    })
-  }, [selectedCollection])
-
-  useEffect(() => {
-    setSelectedFileId((previous) => {
-      if (previous && selectedDataset?.files.some((file) => file.id === previous)) {
-        return previous
-      }
-      return selectedDataset?.files[0]?.id ?? null
-    })
-  }, [selectedDataset])
-
-  useEffect(() => {
-    return () => {
-      localFileUrlsRef.current.forEach((url) => {
-        URL.revokeObjectURL(url)
-      })
-      localFileUrlsRef.current.clear()
+    if (!workspaceId || !projectId) {
+      return
     }
-  }, [])
+    setIsLoadingConnections(true)
+    setConnectionsError(null)
 
-  const totalFiles = useMemo(() => {
-    return collections.reduce((collectionSum, collection) => {
-      return (
-        collectionSum +
-        collection.datasets.reduce((datasetSum, dataset) => datasetSum + dataset.files.length, 0)
-      )
-    }, 0)
-  }, [collections])
+    listStorageConnections(workspaceId, projectId)
+      .then((fetchedConnections) => {
+        setConnections(fetchedConnections)
+        if (fetchedConnections.length > 0) {
+          setSelectedConnectionId((current) => current ?? fetchedConnections[0].id)
+        } else {
+          setSelectedConnectionId(null)
+        }
+      })
+      .catch((error) => {
+        setConnectionsError(error instanceof Error ? error.message : 'Unable to load storage connections.')
+        setConnections([])
+        setSelectedConnectionId(null)
+      })
+      .finally(() => {
+        setIsLoadingConnections(false)
+      })
+  }, [listStorageConnections, workspaceId, projectId])
 
-  const totalSize = useMemo(() => {
-    return collections.reduce((collectionSum, collection) => {
-      return (
-        collectionSum +
-        collection.datasets.reduce(
-          (datasetSum, dataset) =>
-            datasetSum + dataset.files.reduce((fileSum, file) => fileSum + file.sizeBytes, 0),
-          0,
+  useEffect(() => {
+    // Reset folder path when switching buckets
+    setFolderPath([])
+    setFiles([])
+    setFolders([])
+    setSelectedFileKey(null)
+    setListingError(null)
+  }, [selectedConnectionId])
+
+  const refreshListing = useCallback(
+    async (connection: StorageConnection, segments: string[]) => {
+      if (!workspaceId || !projectId) {
+        return
+      }
+
+      setIsListing(true)
+      setListingError(null)
+
+      const basePrefix = ensureTrailingSlash(connection.prefix)
+      const prefix = composePrefix(basePrefix, segments)
+
+      try {
+        const listing = await listStorageObjects(
+          workspaceId,
+          projectId,
+          connection.bucketName,
+          prefix.length > 0 ? prefix : undefined,
         )
-      )
-    }, 0)
-  }, [collections])
+
+        const folderEntries: FolderEntry[] = listing.folders.map((entry) => {
+          const cleaned = stripBasePrefix(entry, basePrefix).replace(/\/+$/, '')
+          const segmentsFromRoot = cleaned.split('/').filter(Boolean)
+          const name = segmentsFromRoot[segmentsFromRoot.length - 1] ?? cleaned
+          return {
+            key: entry,
+            name,
+            segments: segmentsFromRoot,
+            fullPrefix: entry,
+          }
+        })
+
+        const currentPrefix = composePrefix(basePrefix, segments)
+
+        const fileEntries: FileEntry[] = listing.files.map((file) => {
+          const relativePath = stripBasePrefix(file.name, basePrefix)
+          const displayName = currentPrefix
+            ? stripBasePrefix(file.name, currentPrefix)
+            : relativePath
+
+          return {
+            key: file.name,
+            name: displayName || file.name,
+            objectPath: file.name,
+            size: file.size,
+            updatedAt: file.updatedAt,
+            contentType: file.contentType,
+            storageClass: file.storageClass,
+          }
+        })
+
+        setFolders(folderEntries)
+        setFiles(fileEntries)
+        // Preserve selection if still present; otherwise clear.
+        setSelectedFileKey((previous) =>
+          previous && fileEntries.some((file) => file.key === previous) ? previous : null,
+        )
+      } catch (error) {
+        setListingError(error instanceof Error ? error.message : 'Unable to load bucket contents.')
+        setFolders([])
+        setFiles([])
+        setSelectedFileKey(null)
+      } finally {
+        setIsListing(false)
+      }
+    },
+    [listStorageObjects, workspaceId, projectId],
+  )
+
+  useEffect(() => {
+    if (!selectedConnection) {
+      return
+    }
+    refreshListing(selectedConnection, folderPath).catch(() => {
+      // refreshListing handles its own error state
+    })
+  }, [selectedConnection, folderPath, refreshListing])
+
+  const handleSelectFolder = (entry: FolderEntry) => {
+    setFolderPath(entry.segments)
+    setSelectedFileKey(null)
+  }
+
+  const handleBreadcrumbClick = (segments: string[]) => {
+    setFolderPath(segments)
+    setSelectedFileKey(null)
+  }
+
+  const breadcrumbs = useMemo(() => {
+    const crumbs: { label: string; segments: string[] }[] = [{ label: 'Root', segments: [] }]
+    folderPath.forEach((segment, index) => {
+      crumbs.push({ label: segment, segments: folderPath.slice(0, index + 1) })
+    })
+    return crumbs
+  }, [folderPath])
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
   }
 
-  const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    if (!selectedCollection || !selectedDataset) {
-      event.target.value = ''
+  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!selectedConnection || !workspaceId || !projectId) {
       return
     }
+
     const { files: fileList } = event.target
     if (!fileList || fileList.length === 0) {
       return
     }
 
-    const newFiles: ProjectFile[] = Array.from(fileList).map((file) => {
-      const url = URL.createObjectURL(file)
-      localFileUrlsRef.current.add(url)
-      return {
-        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-        name: file.name,
-        sizeBytes: file.size,
-        updatedAt: new Date().toISOString(),
-        owner: 'You',
-        kind: 'file',
-        description: 'Uploaded from your device.',
-        url,
+    setIsUploading(true)
+    setUploadError(null)
+
+    const basePrefix = ensureTrailingSlash(selectedConnection.prefix)
+    const currentPrefix = composePrefix(basePrefix, folderPath)
+
+    try {
+      for (const file of Array.from(fileList)) {
+        const objectPath = `${currentPrefix}${file.name}`
+        const { url } = await createStorageUploadUrl(workspaceId, projectId, {
+          bucketName: selectedConnection.bucketName,
+          objectPath,
+          contentType: file.type || 'application/octet-stream',
+        })
+
+        const uploadResponse = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+        })
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload ${file.name}`)
+        }
       }
-    })
 
-    setCollections((previous) =>
-      previous.map((collection) => {
-        if (collection.id !== selectedCollection.id) {
-          return collection
-        }
-        return {
-          ...collection,
-          datasets: collection.datasets.map((dataset) => {
-            if (dataset.id !== selectedDataset.id) {
-              return dataset
-            }
-            return {
-              ...dataset,
-              files: [...newFiles, ...dataset.files],
-            }
-          }),
-        }
-      }),
-    )
-
-    setSelectedFileId(newFiles[0]?.id ?? selectedDataset.files[0]?.id ?? null)
-    event.target.value = ''
+      await refreshListing(selectedConnection, folderPath)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Upload failed.')
+    } finally {
+      setIsUploading(false)
+      event.target.value = ''
+    }
   }
+
+  const handleDownload = async (file: FileEntry) => {
+    if (!selectedConnection || !workspaceId || !projectId) {
+      return
+    }
+    try {
+      const { url } = await createStorageDownloadUrl(workspaceId, projectId, {
+        bucketName: selectedConnection.bucketName,
+        objectPath: file.objectPath,
+      })
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      setListingError(error instanceof Error ? error.message : 'Unable to generate download link.')
+    }
+  }
+
+  const handleDelete = async (file: FileEntry) => {
+    if (!selectedConnection || !workspaceId || !projectId) {
+      return
+    }
+    try {
+      await deleteStorageObject(workspaceId, projectId, {
+        bucketName: selectedConnection.bucketName,
+        objectPath: file.objectPath,
+      })
+      await refreshListing(selectedConnection, folderPath)
+    } catch (error) {
+      setListingError(error instanceof Error ? error.message : 'Unable to delete object.')
+    }
+  }
+
+  const totalFiles = useMemo(() => files.length, [files])
+  const totalSize = useMemo(
+    () => files.reduce((sum, file) => sum + (file.size ?? 0), 0),
+    [files],
+  )
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -332,14 +351,19 @@ function ProjectDataView() {
             {project.name} <span className="text-brand-muted">/ Data</span>
           </h2>
           <p className="text-sm text-brand-body">
-            Browse project datasets, drill into nested outputs, and keep context as you move across columns.
+            Browse linked GCP buckets, explore nested folders, and manage project artifacts directly from omX.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/30 text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
-            aria-label="Toggle dense view"
+            aria-label="Refresh"
+            onClick={() => {
+              if (selectedConnection) {
+                refreshListing(selectedConnection, folderPath).catch(() => {})
+              }
+            }}
           >
             <svg
               aria-hidden
@@ -350,25 +374,21 @@ function ProjectDataView() {
               stroke="currentColor"
               strokeWidth="1.6"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 7h14M5 12h14M5 17h14" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/30 text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
-            aria-label="Search files"
-          >
-            <svg
-              aria-hidden
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            >
-              <circle cx="11" cy="11" r="6" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-3-3" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 4v6h6"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M20 20v-6h-6"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5.64 18.36A9 9 0 108.46 5.64"
+              />
             </svg>
           </button>
           <button
@@ -394,27 +414,67 @@ function ProjectDataView() {
             ref={fileInputRef}
             type="file"
             multiple
-            onChange={handleUpload}
             className="hidden"
+            onChange={handleFilesSelected}
           />
         </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-brand-muted">
         <span className="rounded-full bg-brand-primary/10 px-3 py-1 font-semibold text-brand-primary">
-          {totalFiles} files indexed
+          {totalFiles} files
         </span>
-        <span className="rounded-full bg-brand-primary/5 px-3 py-1">{formatBytes(totalSize)} total size</span>
-        {selectedCollection && (
+        <span className="rounded-full bg-brand-primary/5 px-3 py-1">{bytesFormatter(totalSize)} total size</span>
+        {selectedConnection && (
           <span className="rounded-full bg-white/70 px-3 py-1">
-            {selectedCollection.path}
+            {selectedConnection.bucketName}
+            {selectedConnection.prefix ? ` / ${selectedConnection.prefix}` : ''}
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-brand-primary/20 bg-white/85 shadow-inner">
+      {breadcrumbs.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted">
+          {breadcrumbs.map((crumb, index) => (
+            <Fragment key={crumb.label + index}>
+              <button
+                type="button"
+                onClick={() => handleBreadcrumbClick(crumb.segments)}
+                className={`rounded-full px-3 py-1 transition ${
+                  crumb.segments.length === folderPath.length
+                    ? 'bg-brand-primary/15 text-brand-primary'
+                    : 'hover:bg-brand-primary/10'
+                }`}
+              >
+                {crumb.label}
+              </button>
+              {index < breadcrumbs.length - 1 && <span className="text-brand-muted">/</span>}
+            </Fragment>
+          ))}
+        </div>
+      )}
+
+      {connectionsError && (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {connectionsError}
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {uploadError}
+        </div>
+      )}
+
+      {listingError && (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {listingError}
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-brand-primary/20 bg-white/90">
         <div className="flex flex-1 flex-col divide-y divide-brand-primary/15 lg:flex-row lg:divide-x lg:divide-y-0">
-          <section className="flex min-h-[200px] flex-1 flex-col lg:max-w-[240px]">
+          <section className="flex min-h-[200px] flex-1 flex-col border-b border-brand-primary/15 bg-white/80 lg:max-w-[240px] lg:border-b-0">
             <header className="flex items-center gap-2 border-b border-brand-primary/15 bg-white/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
               <svg
                 aria-hidden
@@ -431,53 +491,72 @@ function ProjectDataView() {
               GCP Buckets
             </header>
             <div className="flex-1 overflow-y-auto">
-              {collections.map((collection) => {
-                const isActive = collection.id === selectedCollection?.id
-                return (
-                  <button
-                    type="button"
-                    key={collection.id}
-                    onClick={() => setSelectedCollectionId(collection.id)}
-                    className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition ${
-                      isActive
-                        ? 'bg-brand-primary/15 text-brand-primary'
-                        : 'text-brand-text hover:bg-brand-primary/10'
-                    }`}
-                  >
-                    <span className="text-sm font-semibold">{collection.name}</span>
-                    <span className="text-xs text-brand-muted">{collection.path}</span>
-                  </button>
-                )
-              })}
+              {isLoadingConnections && (
+                <div className="flex h-full items-center justify-center px-4 py-6 text-sm text-brand-muted">
+                  Loading connections…
+                </div>
+              )}
+              {!isLoadingConnections && connections.length === 0 && (
+                <div className="flex h-full items-center justify-center px-4 py-6 text-center text-xs text-brand-muted">
+                  Link a bucket in project settings to browse GCS content here.
+                </div>
+              )}
+              {connections.map((connection) => (
+                <button
+                  type="button"
+                  key={connection.id}
+                  onClick={() => setSelectedConnectionId(connection.id)}
+                  className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition ${
+                    connection.id === selectedConnectionId
+                      ? 'bg-brand-primary/15 text-brand-primary'
+                      : 'text-brand-text hover:bg-brand-primary/10'
+                  }`}
+                >
+                  <span className="text-sm font-semibold">{connection.bucketName}</span>
+                  <span className="text-xs text-brand-muted">
+                    {connection.prefix ? connection.prefix : 'Full bucket'}
+                  </span>
+                  {connection.gcpProjectId && (
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-brand-muted">
+                      Project: {connection.gcpProjectId}
+                    </span>
+                  )}
+                  {connection.description && (
+                    <span className="text-[11px] text-brand-muted line-clamp-2">{connection.description}</span>
+                  )}
+                </button>
+              ))}
             </div>
           </section>
 
           <section className="flex min-h-[200px] flex-1 flex-col lg:max-w-[260px]">
             <div className="flex-1 overflow-y-auto py-2">
-              {selectedCollection ? (
-                selectedCollection.datasets.map((dataset) => {
-                  const isActive = dataset.id === selectedDataset?.id
-                  return (
+              {selectedConnection ? (
+                folders.length === 0 ? (
+                  <div className="flex h-full items-center justify-center px-4 text-xs text-brand-muted">
+                    {isListing ? 'Loading folders…' : 'No nested folders in this path.'}
+                  </div>
+                ) : (
+                  folders.map((folder) => (
                     <button
                       type="button"
-                      key={dataset.id}
-                      onClick={() => setSelectedDatasetId(dataset.id)}
+                      key={folder.key}
+                      onClick={() => handleSelectFolder(folder)}
                       className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition ${
-                        isActive
+                        folder.segments.length === folderPath.length &&
+                        folder.segments.every((segment, index) => segment === folderPath[index])
                           ? 'bg-brand-primary/15 text-brand-primary'
                           : 'text-brand-text hover:bg-brand-primary/10'
                       }`}
                     >
-                      <span className="text-sm font-semibold">{dataset.name}</span>
-                      {dataset.description && (
-                        <span className="text-xs text-brand-muted line-clamp-2">{dataset.description}</span>
-                      )}
+                      <span className="text-sm font-semibold">{folder.name}</span>
+                      <span className="text-xs text-brand-muted">/{folder.segments.join('/')}</span>
                     </button>
-                  )
-                })
+                  ))
+                )
               ) : (
-                <div className="flex h-full items-center justify-center px-4">
-                  <p className="text-xs text-brand-muted">Select a collection to view datasets.</p>
+                <div className="flex h-full items-center justify-center px-4 text-xs text-brand-muted">
+                  Select a bucket to explore folders.
                 </div>
               )}
             </div>
@@ -485,21 +564,19 @@ function ProjectDataView() {
 
           <section className="flex min-h-[200px] flex-1 flex-col">
             <div className="flex-1 overflow-y-auto py-2">
-              {selectedDataset && (
-                <div className="flex items-center justify-end px-4 pb-2 text-[10px] font-medium text-brand-muted">
-                  {selectedDataset.files.length} items
-                </div>
-              )}
-              {selectedDataset ? (
-                selectedDataset.files.map((file) => {
-                  const isActive = file.id === selectedFile?.id
-                  return (
+              {selectedConnection ? (
+                files.length === 0 ? (
+                  <div className="flex h-full items-center justify-center px-4 text-xs text-brand-muted">
+                    {isListing ? 'Loading files…' : 'No files present in this folder.'}
+                  </div>
+                ) : (
+                  files.map((file) => (
                     <button
                       type="button"
-                      key={file.id}
-                      onClick={() => setSelectedFileId(file.id)}
-                      className={`flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition ${
-                        isActive
+                      key={file.key}
+                      onClick={() => setSelectedFileKey(file.key)}
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition ${
+                        file.key === selectedFileKey
                           ? 'bg-brand-primary/15 text-brand-primary'
                           : 'text-brand-text hover:bg-brand-primary/10'
                       }`}
@@ -507,86 +584,116 @@ function ProjectDataView() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{file.name}</p>
                         <p className="truncate text-xs text-brand-muted">
-                          {formatBytes(file.sizeBytes)} · {shortDateFormatter.format(new Date(file.updatedAt))}
+                          {bytesFormatter(file.size)} · {formatDateTime(file.updatedAt)}
                         </p>
                       </div>
-                      <span className="text-[11px] uppercase tracking-[0.25em] text-brand-muted">
-                        {file.kind === 'image'
-                          ? 'IMG'
-                          : file.kind === 'notebook'
-                          ? 'NB'
-                          : 'FILE'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleDownload(file).catch(() => {})
+                          }}
+                          className="inline-flex items-center gap-2 rounded-full border border-brand-primary/40 px-3 py-1 text-[11px] font-semibold text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
+                        >
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleDelete(file).catch(() => {})
+                          }}
+                          className="inline-flex items-center gap-2 rounded-full border border-red-200 px-3 py-1 text-[11px] font-semibold text-red-500 transition hover:border-red-400 hover:bg-red-100/70"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </button>
-                  )
-                })
+                  ))
+                )
               ) : (
-                <div className="flex h-full items-center justify-center px-4">
-                  <p className="text-xs text-brand-muted">Select a dataset to explore its files.</p>
+                <div className="flex h-full items-center justify-center px-4 text-xs text-brand-muted">
+                  Select a bucket to view files.
                 </div>
               )}
             </div>
           </section>
 
-          <aside className="hidden min-h-[200px] w-full flex-col bg-white/60 px-6 py-5 text-sm text-brand-body lg:flex lg:max-w-[280px]">
+          <aside className="hidden min-h-[200px] w-full flex-col bg-white/60 px-6 py-5 text-sm text-brand-body lg:flex lg:max-w-[300px]">
             {selectedFile ? (
               <div className="space-y-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.35em] text-brand-muted">Selected file</p>
                   <h3 className="mt-2 text-lg font-semibold text-brand-text">{selectedFile.name}</h3>
-                  {selectedDataset && (
-                    <p className="text-xs text-brand-muted">
-                      {selectedCollection?.path}/{selectedDataset.name}
-                    </p>
-                  )}
+                  <p className="text-xs text-brand-muted">{selectedFile.objectPath}</p>
                 </div>
                 <dl className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <dt className="text-brand-muted">Size</dt>
-                    <dd className="font-semibold text-brand-text">{formatBytes(selectedFile.sizeBytes)}</dd>
+                    <dd className="font-semibold text-brand-text">{bytesFormatter(selectedFile.size)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-brand-muted">Last updated</dt>
-                    <dd className="font-semibold text-brand-text">
-                      {updatedAtFormatter.format(new Date(selectedFile.updatedAt))}
-                    </dd>
+                    <dt className="text-brand-muted">Updated</dt>
+                    <dd className="font-semibold text-brand-text">{formatDateTime(selectedFile.updatedAt)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-brand-muted">Owner</dt>
-                    <dd className="font-semibold text-brand-text">{selectedFile.owner}</dd>
+                    <dt className="text-brand-muted">Content type</dt>
+                    <dd className="font-semibold text-brand-text">{selectedFile.contentType ?? '—'}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-brand-muted">Storage class</dt>
+                    <dd className="font-semibold text-brand-text">{selectedFile.storageClass ?? '—'}</dd>
                   </div>
                 </dl>
-                {selectedFile.description && (
-                  <div className="rounded-2xl bg-brand-primary/10 px-4 py-3 text-xs text-brand-body">
-                    {selectedFile.description}
-                  </div>
-                )}
-                {selectedFile.url ? (
-                  <a
-                    href={selectedFile.url}
-                    download={selectedFile.name}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary/40 px-4 py-2 text-xs font-semibold text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
-                  >
-                    Download
-                  </a>
-                ) : (
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary/40 px-4 py-2 text-xs font-semibold text-brand-primary opacity-70"
-                    disabled
+                    onClick={() => handleDownload(selectedFile).catch(() => {})}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-primary/40 px-4 py-2 text-xs font-semibold text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
                   >
                     Download
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(selectedFile).catch(() => {})}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-500 transition hover:border-red-400 hover:bg-red-100/70"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-center text-xs text-brand-muted">
-                Select a file to inspect metadata and download options.
+                Select a file to see metadata, download links, and retention details.
               </div>
             )}
           </aside>
         </div>
       </div>
+
+      {isUploading && (
+        <div className="flex items-center gap-3 rounded-3xl border border-brand-primary/20 bg-brand-primary/10 px-4 py-3 text-sm text-brand-primary">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-primary/30">
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              className="h-4 w-4 animate-spin"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v4M12 16v4M4 12h4M16 12h4M5.64 5.64l2.83 2.83M15.53 15.54l2.83 2.83M5.64 18.36l2.83-2.83M15.53 8.47l2.83-2.83"
+              />
+            </svg>
+          </span>
+          Uploading files…
+        </div>
+      )}
     </div>
   )
 }

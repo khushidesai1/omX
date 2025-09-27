@@ -22,6 +22,11 @@ export interface WorkspaceMember {
   joinedAt: string
 }
 
+export interface WorkspaceDetail extends Workspace {
+  members: WorkspaceMember[]
+  projectCount: number
+}
+
 export interface CreateWorkspacePayload {
   name: string
   description?: string
@@ -32,4 +37,12 @@ export interface CreateWorkspacePayload {
 export interface JoinWorkspacePayload {
   workspaceId: string
   accessKey?: string
+}
+
+export interface UpdateWorkspacePayload {
+  name?: string
+  description?: string
+  accessKey?: string
+  slug?: string
+  isPublic?: boolean
 }

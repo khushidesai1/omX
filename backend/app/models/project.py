@@ -29,7 +29,13 @@ class Project(Base, TimestampMixin):
 
   workspace: Mapped["Workspace"] = relationship(back_populates="projects")
   creator: Mapped["User"] = relationship(back_populates="projects_created")
+  storage_connections: Mapped[list["ProjectStorageConnection"]] = relationship(
+    "ProjectStorageConnection",
+    back_populates="project",
+    cascade="all, delete-orphan",
+  )
 
 
 from app.models.workspace import Workspace  # noqa: E402  # isort:skip
 from app.models.user import User  # noqa: E402  # isort:skip
+from app.models.storage import ProjectStorageConnection  # noqa: E402  # isort:skip
