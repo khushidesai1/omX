@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
   access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
   cors_origins: List[AnyHttpUrl] = Field(default_factory=lambda: ["http://localhost:5173"])
+  cors_origin_regex: Optional[str] = Field(default=None, alias="CORS_ORIGIN_REGEX")
 
 
 @lru_cache
