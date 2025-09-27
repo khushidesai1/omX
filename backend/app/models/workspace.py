@@ -19,7 +19,7 @@ class Workspace(Base, TimestampMixin):
   description: Mapped[str | None] = mapped_column(String, nullable=True)
   owner_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
   access_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-  invite_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+  slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
   is_public: Mapped[bool] = mapped_column(Boolean, default=False)
   is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

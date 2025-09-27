@@ -5,7 +5,7 @@ export interface Workspace {
   name: string
   description?: string
   ownerId: string
-  inviteCode: string
+  slug: string
   hasAccessKey: boolean
   isPublic: boolean
   memberCount: number
@@ -26,9 +26,10 @@ export interface CreateWorkspacePayload {
   name: string
   description?: string
   accessKey?: string
+  slug?: string
 }
 
 export interface JoinWorkspacePayload {
-  inviteCode: string
+  workspaceId: string
   accessKey?: string
 }

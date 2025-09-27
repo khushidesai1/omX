@@ -26,7 +26,7 @@ interface AuthContextValue {
   setCurrentWorkspace: (workspaceId: string) => void
   createWorkspace: (
     payload: CreateWorkspacePayload,
-  ) => Promise<{ workspace: Workspace; inviteCode: string; accessKey?: string }>
+  ) => Promise<{ workspace: Workspace; accessKey?: string }>
   joinWorkspace: (payload: JoinWorkspacePayload) => Promise<Workspace>
   createProject: (workspaceId: string, payload: CreateProjectPayload) => Promise<Project>
   getProjects: (workspaceId: string) => Project[]
@@ -57,7 +57,7 @@ const mapWorkspace = (payload: any): Workspace => ({
   name: payload.name,
   description: payload.description ?? undefined,
   ownerId: payload.owner_id,
-  inviteCode: payload.invite_code,
+  slug: payload.slug,
   hasAccessKey: payload.has_access_key,
   isPublic: payload.is_public,
   memberCount: payload.member_count,
@@ -352,7 +352,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await authorizedFetch('/workspaces', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: payload.name,
+          description: payload.description,
+          access_key: payload.accessKey,
+          slug: payload.slug,
+        }),
       })
 
       const data = await response.json()
@@ -370,7 +375,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
       return {
         workspace,
-        inviteCode: data.invite_code,
         accessKey: data.access_key ?? undefined,
       }
     },
@@ -381,7 +385,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
     async (payload: JoinWorkspacePayload) => {
       const response = await authorizedFetch('/workspaces/join', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          workspace_id: payload.workspaceId,
+          access_key: payload.accessKey,
+        }),
       })
 
       const data = await response.json()

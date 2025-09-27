@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+
 class WorkspaceBase(BaseModel):
   name: str
   description: Optional[str] = None
@@ -10,12 +11,13 @@ class WorkspaceBase(BaseModel):
 
 class WorkspaceCreate(WorkspaceBase):
   access_key: Optional[str] = None
+  slug: Optional[str] = None
 
 
 class WorkspaceRead(WorkspaceBase):
   id: str
   owner_id: str
-  invite_code: str
+  slug: str
   has_access_key: bool
   is_public: bool
   member_count: int
@@ -41,7 +43,7 @@ class WorkspaceMemberRead(BaseModel):
 class WorkspaceDetail(WorkspaceBase):
   id: str
   owner_id: str
-  invite_code: str
+  slug: str
   is_public: bool
   members: List[WorkspaceMemberRead]
   project_count: int
@@ -58,12 +60,11 @@ class WorkspaceListResponse(BaseModel):
 
 class WorkspaceCreateResponse(BaseModel):
   workspace: WorkspaceRead
-  invite_code: str
   access_key: Optional[str] = None
 
 
 class WorkspaceJoinRequest(BaseModel):
-  invite_code: str
+  workspace_id: str
   access_key: Optional[str] = None
 
 

@@ -16,18 +16,10 @@ from app.schemas.workspace import (
   WorkspaceMemberRead,
   WorkspaceRead,
 )
-from app.utils.invite import generate_invite_code
+from app.utils.strings import generate_slug, slugify
 
 
 router = APIRouter()
-
-
-async def _ensure_unique_invite_code(db: AsyncSession) -> str:
-  while True:
-    invite_code = generate_invite_code()
-    existing = await db.execute(select(Workspace).where(Workspace.invite_code == invite_code))
-    if not existing.scalar_one_or_none():
-      return invite_code
 
 
 def _workspace_to_read(workspace: Workspace, member_count: int, role: str) -> WorkspaceRead:
@@ -36,7 +28,7 @@ def _workspace_to_read(workspace: Workspace, member_count: int, role: str) -> Wo
     name=workspace.name,
     description=workspace.description,
     owner_id=workspace.owner_id,
-    invite_code=workspace.invite_code,
+    slug=workspace.slug,
     has_access_key=bool(workspace.access_key),
     is_public=workspace.is_public,
     member_count=member_count,
@@ -87,13 +79,30 @@ async def create_workspace(
   if not name:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Workspace name is required")
 
-  invite_code = await _ensure_unique_invite_code(db)
+  desired_slug = payload.slug or name
+  slug_candidate = slugify(desired_slug)
+  slug_candidate = slug_candidate[:50]
+
+  if not slug_candidate:
+    slug_candidate = generate_slug(length=6)
+
+  base_slug = slug_candidate
+  attempt = 1
+  while True:
+    existing_slug = await db.execute(select(Workspace.id).where(Workspace.slug == slug_candidate))
+    if not existing_slug.scalar_one_or_none():
+      break
+    attempt += 1
+    suffix = f"-{attempt}"
+    slug_candidate = (base_slug + suffix)[:64]
+
+  slug_value = slug_candidate
 
   workspace = Workspace(
     name=name,
     description=payload.description,
     owner_id=current_user.id,
-    invite_code=invite_code,
+    slug=slug_value,
     access_key=payload.access_key,
   )
   db.add(workspace)
@@ -113,7 +122,6 @@ async def create_workspace(
 
   return WorkspaceCreateResponse(
     workspace=workspace_read,
-    invite_code=invite_code,
     access_key=payload.access_key,
   )
 
@@ -124,9 +132,13 @@ async def join_workspace(
   current_user: User = Depends(get_current_active_user),
   db: AsyncSession = Depends(get_db),
 ) -> WorkspaceJoinResponse:
-  invite_code = payload.invite_code.strip().upper()
-  workspace_query = await db.execute(select(Workspace).where(Workspace.invite_code == invite_code))
+  identifier = payload.workspace_id.strip().lower()
+  workspace_query = await db.execute(select(Workspace).where(Workspace.slug == identifier))
   workspace = workspace_query.scalar_one_or_none()
+  if not workspace:
+    workspace = (
+      await db.execute(select(Workspace).where(Workspace.id == identifier))
+    ).scalar_one_or_none()
   if not workspace:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
 
@@ -178,8 +190,12 @@ async def get_workspace_detail(
   current_user: User = Depends(get_current_active_user),
   db: AsyncSession = Depends(get_db),
 ) -> WorkspaceDetail:
-  workspace_query = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+  workspace_query = await db.execute(select(Workspace).where(Workspace.slug == workspace_id))
   workspace = workspace_query.scalar_one_or_none()
+  if not workspace:
+    workspace = (
+      await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    ).scalar_one_or_none()
   if not workspace:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
 
@@ -232,7 +248,7 @@ async def get_workspace_detail(
     name=workspace.name,
     description=workspace.description,
     owner_id=workspace.owner_id,
-    invite_code=workspace.invite_code,
+    slug=workspace.slug,
     is_public=workspace.is_public,
     members=members,
     project_count=project_count,

@@ -9,10 +9,11 @@ interface CreateFormState {
   name: string
   description: string
   accessKey: string
+  slug: string
 }
 
 interface JoinFormState {
-  inviteCode: string
+  workspaceId: string
   accessKey: string
 }
 
@@ -24,11 +25,12 @@ function WorkspaceSelector() {
     name: '',
     description: '',
     accessKey: '',
+    slug: '',
   })
-  const [joinForm, setJoinForm] = useState<JoinFormState>({ inviteCode: '', accessKey: '' })
+  const [joinForm, setJoinForm] = useState<JoinFormState>({ workspaceId: '', accessKey: '' })
   const [createError, setCreateError] = useState<string | null>(null)
   const [joinError, setJoinError] = useState<string | null>(null)
-  const [createSuccess, setCreateSuccess] = useState<{ inviteCode: string; accessKey?: string } | null>(null)
+  const [createSuccess, setCreateSuccess] = useState<{ workspaceId: string; accessKey?: string } | null>(null)
   const [joinSuccess, setJoinSuccess] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
@@ -69,9 +71,10 @@ function WorkspaceSelector() {
         name: createForm.name,
         description: createForm.description,
         accessKey: createForm.accessKey,
+        slug: createForm.slug,
       })
-      setCreateSuccess({ inviteCode: response.inviteCode, accessKey: response.accessKey })
-      setCreateForm({ name: '', description: '', accessKey: '' })
+      setCreateSuccess({ workspaceId: response.workspace.slug, accessKey: response.accessKey })
+      setCreateForm({ name: '', description: '', accessKey: '', slug: '' })
       setTimeout(() => {
         navigate('/dashboard')
       }, 800)
@@ -89,11 +92,11 @@ function WorkspaceSelector() {
     setIsJoining(true)
     try {
       const workspace = await joinWorkspace({
-        inviteCode: joinForm.inviteCode,
+        workspaceId: joinForm.workspaceId,
         accessKey: joinForm.accessKey,
       })
-      setJoinSuccess(`Joined ${workspace.name}`)
-      setJoinForm({ inviteCode: '', accessKey: '' })
+      setJoinSuccess(`Joined ${workspace.name} (ID: ${workspace.slug})`)
+      setJoinForm({ workspaceId: '', accessKey: '' })
       setTimeout(() => {
         navigate('/dashboard')
       }, 650)
@@ -189,7 +192,7 @@ function WorkspaceSelector() {
             <div className="max-w-2xl">
               <h1 className="text-3xl font-semibold text-brand-text">Create or join a workspace</h1>
               <p className="mt-3 text-brand-body">
-                Create a new workspace or join an existing workspace with an invite ID and access key.
+                Create a new workspace or join an existing workspace using its workspace ID and access key.
               </p>
             </div>
 
@@ -201,7 +204,7 @@ function WorkspaceSelector() {
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-brand-text">Launch a fresh workspace</h2>
                   <p className="mt-1 text-sm text-brand-body">
-                    Workspace name is required. Add an optional access key if you want an extra layer of control.
+                    Workspace name is required. Optionally reserve a workspace ID (lowercase, numbers, and dashes) for teammates to join and add an access key for extra control.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -220,6 +223,24 @@ function WorkspaceSelector() {
                     placeholder="AziziLab Workspace"
                     className="w-full rounded-xl border border-brand-primary/30 bg-white px-4 py-3 text-brand-text outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="workspace-slug" className="text-sm font-semibold text-brand-text">
+                    Workspace ID (optional)
+                  </label>
+                  <input
+                    id="workspace-slug"
+                    value={createForm.slug}
+                    onChange={(event) => {
+                      const value = event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+                      setCreateForm((previous) => ({ ...previous, slug: value }))
+                      setCreateError(null)
+                      setCreateSuccess(null)
+                    }}
+                    placeholder="omx-shared-lab"
+                    className="w-full rounded-xl border border-brand-primary/30 bg-white px-4 py-3 text-brand-text outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
+                  />
+                  <p className="text-xs text-brand-muted">Use lowercase letters, numbers, and dashes. Leave blank to auto-generate.</p>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="workspace-description" className="text-sm font-semibold text-brand-text">
@@ -258,7 +279,7 @@ function WorkspaceSelector() {
                 {createSuccess && (
                   <div className="space-y-1 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                     <p className="font-semibold">Workspace created</p>
-                    <p>Invite code: {createSuccess.inviteCode}</p>
+                    <p>Workspace ID: {createSuccess.workspaceId}</p>
                     {createSuccess.accessKey && <p>Access key: {createSuccess.accessKey}</p>}
                   </div>
                 )}
@@ -283,17 +304,18 @@ function WorkspaceSelector() {
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="invite-code" className="text-sm font-semibold text-brand-text">
-                    Invite code
+                    Workspace ID
                   </label>
                   <input
                     id="invite-code"
-                    value={joinForm.inviteCode}
+                    value={joinForm.workspaceId}
                     onChange={(event) => {
-                      setJoinForm((previous) => ({ ...previous, inviteCode: event.target.value.toUpperCase() }))
+                      const value = event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+                      setJoinForm((previous) => ({ ...previous, workspaceId: value }))
                       setJoinError(null)
                       setJoinSuccess(null)
                     }}
-                    placeholder="Example: AZIZI6"
+                    placeholder="Example: omx-shared-lab"
                     required
                     className="w-full rounded-xl border border-brand-primary/30 bg-white px-4 py-3 text-brand-text outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
                   />
