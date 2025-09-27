@@ -1,5 +1,8 @@
 import { NavLink } from 'react-router-dom'
 
+import dataTabIcon from '../../assets/project-data-icon.png'
+import dashboardTabIcon from '../../assets/project-dashboard-icon.png'
+
 interface ProjectSidebarProps {
   basePath: string
   projectName: string
@@ -9,40 +12,12 @@ const tabs = [
   {
     key: 'data',
     label: 'Data',
-    icon: (
-      <svg
-        aria-hidden
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <ellipse cx="12" cy="6" rx="6" ry="2.5" />
-        <path d="M6 6v12c0 1.38 2.69 2.5 6 2.5s6-1.12 6-2.5V6" />
-      </svg>
-    ),
+    icon: dataTabIcon,
   },
   {
     key: 'dashboards',
     label: 'Dashboards',
-    icon: (
-      <svg
-        aria-hidden
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path d="M4 4h7v7H4z" />
-        <path d="M13 4h7v4h-7z" />
-        <path d="M13 10h7v10h-7z" />
-        <path d="M4 13h7v7H4z" />
-      </svg>
-    ),
+    icon: dashboardTabIcon,
   },
 ]
 
@@ -73,7 +48,15 @@ function ProjectSidebar({ basePath, projectName }: ProjectSidebarProps) {
               }`
             }
           >
-            {tab.icon}
+            {({ isActive }) => (
+              <img
+                src={tab.icon}
+                alt=""
+                className={`h-8 w-8 object-contain ${
+                  isActive ? '' : 'opacity-80 group-hover:opacity-100'
+                }`}
+              />
+            )}
           </NavLink>
         ))}
       </nav>
