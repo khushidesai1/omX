@@ -255,6 +255,7 @@ async def get_workspace_detail(
     members=members,
     project_count=project_count,
     created_at=workspace.created_at,
+    access_key=workspace.access_key,
   )
 
 

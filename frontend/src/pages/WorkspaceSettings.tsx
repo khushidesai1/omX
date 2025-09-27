@@ -304,22 +304,7 @@ function WorkspaceSettings() {
             </div>
           )}
 
-         <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (previousPath) {
-                  window.location.href = previousPath
-                } else if (history.length > 1) {
-                  navigate(-1)
-                } else {
-                  navigate('/dashboard')
-                }
-              }}
-              className="rounded-full border border-brand-primary/30 px-4 py-2 text-sm font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-end">
             <button
               type="submit"
               disabled={isSaving || !isOwner}

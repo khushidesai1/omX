@@ -56,6 +56,7 @@ class WorkspaceDetail(WorkspaceBase):
   members: List[WorkspaceMemberRead]
   project_count: int
   created_at: datetime
+  access_key: Optional[str] = None
 
   class Config:
     from_attributes = True
