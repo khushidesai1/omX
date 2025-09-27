@@ -7,28 +7,44 @@ const featureHighlights = [
     title: 'Unified Workspaces',
     description:
       'Switch across projects, datasets, and dashboards without losing context. Real-time sync keeps every collaborator aligned.',
-  },
-  {
-    title: 'Developer + No-Code Pipelines',
-    description:
-      'Compose modular plot blocks, drag-and-drop dashboards, or drop into code with Monaco-powered cells when you need full control.',
+    status: 'available',
   },
   {
     title: 'High-Resolution Explorers',
     description:
-      'Progressive tile streaming keeps Xenium-scale imagery responsive while layers, annotations, and metrics stay crisp.',
+      'Progressive imagery streaming, layered annotations, and cross-filtered dashboards that feel instantaneous—even at Xenium scale.',
+    status: 'available',
+  },
+  {
+    title: 'Developer + No-Code Pipelines',
+    description:
+      'Custom preprocessing recipes with notebook-style editing and reusable task blocks for automation and reproducibility.',
+    status: 'coming-soon',
   },
   {
     title: 'RunPod-Powered Compute',
     description:
       'Templated CPU/GPU environments with cost estimates and inline telemetry, so you can spin up runs with total confidence.',
+    status: 'coming-soon',
   },
 ]
 
-const stats = [
-  { label: 'GPU jobs running', value: '6', badge: 'T4 · V100' },
-  { label: 'Datasets mounted', value: '23', badge: 'GCS · S3' },
-  { label: 'Dashboards live', value: '12', badge: 'Teams' },
+const snapshotHighlights = [
+  {
+    title: 'Shared workspaces',
+    body: 'Invite cross-functional teams into a single source of truth with granular roles, audit trails, and instant sync.',
+    tag: 'Invite & RBAC',
+  },
+  {
+    title: 'Modular dashboards',
+    body: 'Compose reusable visualization blocks—drag-and-drop panels or drop into code when you need deeper control.',
+    tag: 'Drag + Code',
+  },
+  {
+    title: 'Collaborator sharing',
+    body: 'Publish explorers, annotations, and notes for partners with secure links, comments, and scheduled digests.',
+    tag: 'Share & Review',
+  },
 ]
 
 const integrationTiles = [
@@ -117,35 +133,33 @@ function Home() {
             <div className="grid gap-4 bg-gradient-to-br from-white via-brand-primary/15 to-transparent p-8 text-left">
               <div className="grid gap-2 text-brand-body">
                 <span className="text-xs font-semibold uppercase tracking-[0.4em] text-brand-primary/80">
-                  Workspace Snapshot
+                  Platform Snapshot
                 </span>
                 <h2 className="text-2xl font-semibold text-brand-text">
-                  One platform for data, compute, and dashboards
+                  One platform for data visualization and dashboards
                 </h2>
                 <p>
-                  Configure RunPod templates, mount GCS buckets, and publish reusable plot blocks. omX keeps everything versioned and auditable.
+                  Create dashboards, visualize data, and share static and interactive plots with your team. omX keeps everything versioned and auditable.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                {stats.map((stat) => (
+                {snapshotHighlights.map((item) => (
                   <div
-                    key={stat.label}
-                    className="flex flex-col rounded-2xl border border-brand-primary/20 bg-white/90 p-4 text-brand-body shadow-sm"
+                    key={item.title}
+                    className="flex flex-col gap-3 rounded-2xl border border-brand-primary/20 bg-white/90 p-4 text-brand-body shadow-sm"
                   >
                     <span className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-primary/70">
-                      {stat.label}
+                      {item.tag}
                     </span>
-                    <span className="mt-2 text-3xl font-semibold text-brand-text">{stat.value}</span>
-                    <span className="mt-2 inline-flex w-fit rounded-full border border-brand-primary/30 px-3 py-1 text-xs font-medium text-brand-primary">
-                      {stat.badge}
-                    </span>
+                    <h3 className="text-lg font-semibold text-brand-text">{item.title}</h3>
+                    <p className="text-sm leading-relaxed">{item.body}</p>
                   </div>
                 ))}
               </div>
               <div className="rounded-2xl border border-brand-primary/20 bg-white/90 p-4 text-brand-body shadow-sm">
-                <p className="text-sm font-semibold text-brand-text">Realtime updates</p>
+                <p className="text-sm font-semibold text-brand-text">Seamless collaboration</p>
                 <p className="text-sm">
-                  Audit logs, cost deltas, and dataset previews stream in via WebSockets so teams stay aligned.
+                  Comment threads, shareable snapshots, and weekly digests keep every collaborator aligned without leaving omX.
                 </p>
               </div>
             </div>
@@ -157,11 +171,20 @@ function Home() {
             {featureHighlights.map((feature) => (
               <div
                 key={feature.title}
-                className="group flex flex-col gap-3 rounded-3xl border border-brand-primary/20 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                className={`group flex flex-col gap-3 rounded-3xl border p-8 shadow-sm transition ${
+                  feature.status === 'coming-soon'
+                    ? 'border-brand-primary/10 bg-white/70 text-brand-body'
+                    : 'border-brand-primary/20 bg-white text-brand-body hover:-translate-y-1 hover:shadow-xl'
+                }`}
               >
                 <div className="h-10 w-10 rounded-full bg-brand-primary/15" />
                 <h3 className="text-2xl font-semibold text-brand-text">{feature.title}</h3>
                 <p className="text-base leading-relaxed text-brand-body">{feature.description}</p>
+                {feature.status === 'coming-soon' && (
+                  <span className="inline-flex w-fit rounded-full border border-brand-primary/20 bg-brand-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-brand-primary">
+                    Coming Soon
+                  </span>
+                )}
               </div>
             ))}
           </div>

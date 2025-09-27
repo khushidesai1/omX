@@ -59,7 +59,7 @@ function ProjectCreationModal({ onClose, onCreate }: ProjectCreationModalProps) 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-brand-primary/30 p-2 text-brand-primary transition hover:bg-brand-primary/10"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-primary/30 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary/10"
             aria-label="Close"
           >
             ×
