@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,7 +130,11 @@ async def create_storage_connection(
   return StorageConnectionRead.model_validate(connection)
 
 
-@router.delete("/connections/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+  "/connections/{connection_id}",
+  status_code=status.HTTP_204_NO_CONTENT,
+  response_class=Response,
+)
 async def delete_storage_connection(
   workspace_id: str,
   project_id: str,
@@ -251,7 +255,11 @@ async def create_download_url(
   return StorageSignedUrlResponse(url=url, expires_in=ttl)
 
 
-@router.delete("/objects", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+  "/objects",
+  status_code=status.HTTP_204_NO_CONTENT,
+  response_class=Response,
+)
 async def delete_object(
   payload: StorageObjectDeleteRequest,
   workspace_id: str,
