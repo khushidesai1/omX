@@ -7,6 +7,9 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import WorkspaceSelector from './pages/WorkspaceSelector'
 import Dashboard from './pages/Dashboard'
+import ProjectDetailLayout from './pages/project-detail/ProjectDetailLayout'
+import ProjectDataView from './pages/project-detail/ProjectDataView'
+import ProjectDashboardsView from './pages/project-detail/ProjectDashboardsView'
 
 function App() {
   return (
@@ -32,6 +35,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/workspace/:workspaceId/project/:projectId"
+          element={
+            <ProtectedRoute>
+              <ProjectDetailLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="data" replace />} />
+          <Route path="data" element={<ProjectDataView />} />
+          <Route path="dashboards" element={<ProjectDashboardsView />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

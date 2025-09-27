@@ -297,9 +297,9 @@ function WorkspaceSelector() {
                   <p className="text-sm font-semibold uppercase tracking-[0.35em] text-brand-primary/80">
                     Join workspace
                   </p>
-                  <h2 className="mt-2 text-xl font-semibold text-brand-text">Use an invite code</h2>
+                  <h2 className="mt-2 text-xl font-semibold text-brand-text">Use an access key</h2>
                   <p className="mt-1 text-sm text-brand-body">
-                    Enter the invite code shared with you. If an access key is required, include it below.
+                    Enter the workspace ID and access key shared with you to join the workspace.
                   </p>
                 </div>
                 <div className="space-y-2">

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import type { Project } from '../types/project'
 
 interface ProjectGridProps {
@@ -31,9 +33,10 @@ function ProjectGrid({ projects, onCreateProject }: ProjectGridProps) {
   return (
     <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {projects.map((project) => (
-        <div
+        <Link
           key={project.id}
-          className="group relative aspect-square overflow-hidden rounded-3xl border border-brand-primary/20 bg-white/95 p-6 shadow transition hover:-translate-y-1 hover:shadow-xl"
+          to={`/workspace/${project.workspaceId}/project/${project.id}/data`}
+          className="group relative block aspect-square overflow-hidden rounded-3xl border border-brand-primary/20 bg-white/95 p-6 text-left shadow transition hover:-translate-y-1 hover:shadow-xl"
         >
           <span className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-brand-primary">
             {projectTypeLabel(project)}
@@ -54,7 +57,7 @@ function ProjectGrid({ projects, onCreateProject }: ProjectGridProps) {
               ))}
             </div>
           </div>
-        </div>
+        </Link>
       ))}
 
       <button
