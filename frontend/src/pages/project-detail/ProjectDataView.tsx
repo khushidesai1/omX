@@ -428,7 +428,7 @@ function ProjectDataView() {
                 <circle cx="12" cy="6" r="3" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3" />
               </svg>
-              Collections
+              GCP Buckets
             </header>
             <div className="flex-1 overflow-y-auto">
               {collections.map((collection) => {
@@ -453,22 +453,7 @@ function ProjectDataView() {
           </section>
 
           <section className="flex min-h-[200px] flex-1 flex-col lg:max-w-[260px]">
-            <header className="flex items-center gap-2 border-b border-brand-primary/15 bg-white/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
-              <svg
-                aria-hidden
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18v10H3z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6" />
-              </svg>
-              Datasets
-            </header>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto py-2">
               {selectedCollection ? (
                 selectedCollection.datasets.map((dataset) => {
                   const isActive = dataset.id === selectedDataset?.id
@@ -499,29 +484,12 @@ function ProjectDataView() {
           </section>
 
           <section className="flex min-h-[200px] flex-1 flex-col">
-            <header className="flex items-center justify-between border-b border-brand-primary/15 bg-white/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
-              <span className="flex items-center gap-2">
-                <svg
-                  aria-hidden
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v14H4z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 9h16" />
-                </svg>
-                Files
-              </span>
+            <div className="flex-1 overflow-y-auto py-2">
               {selectedDataset && (
-                <span className="text-[10px] font-medium text-brand-muted">
+                <div className="flex items-center justify-end px-4 pb-2 text-[10px] font-medium text-brand-muted">
                   {selectedDataset.files.length} items
-                </span>
+                </div>
               )}
-            </header>
-            <div className="flex-1 overflow-y-auto">
               {selectedDataset ? (
                 selectedDataset.files.map((file) => {
                   const isActive = file.id === selectedFile?.id

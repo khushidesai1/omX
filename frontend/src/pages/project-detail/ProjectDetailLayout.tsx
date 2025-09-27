@@ -105,7 +105,7 @@ function ProjectDetailLayout() {
           onLogout={handleLogout}
         />
         <div className="flex-1 overflow-y-auto px-6 pb-10 pt-6 sm:px-10">
-          <ProjectMainContent project={project} workspaceName={workspace?.name ?? 'Workspace'}>
+          <ProjectMainContent>
             <Outlet context={{ project, workspaceName: workspace?.name ?? 'Workspace' }} />
           </ProjectMainContent>
         </div>
