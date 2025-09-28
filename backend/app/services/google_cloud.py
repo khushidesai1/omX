@@ -6,8 +6,9 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 from google.auth.credentials import Credentials
-from google.cloud import resourcemanager_v1
 from google.cloud import storage
+from google.cloud.resourcemanager_v1 import ProjectsClient
+from google.cloud.resourcemanager_v1.types import ListProjectsRequest, GetIamPolicyRequest, Project as GCPProject
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuth2Credentials
 
@@ -82,17 +83,17 @@ class GoogleCloudService:
             credentials = self._create_user_credentials(access_token, refresh_token)
 
             # Create Resource Manager client with user credentials
-            client = resourcemanager_v1.ProjectsClient(credentials=credentials)
+            client = ProjectsClient(credentials=credentials)
 
             projects = []
             try:
                 # List all projects accessible to the user
-                request = resourcemanager_v1.ListProjectsRequest()
+                request = ListProjectsRequest()
                 page_result = client.list_projects(request=request)
 
                 for project in page_result:
                     # Only include active projects
-                    if project.state == resourcemanager_v1.Project.State.ACTIVE:
+                    if project.state == GCPProject.State.ACTIVE:
                         projects.append({
                             "id": project.project_id,
                             "name": project.display_name or project.project_id,
@@ -208,8 +209,8 @@ class GoogleCloudService:
             credentials = self._create_user_credentials(access_token, refresh_token)
 
             try:
-                client = resourcemanager_v1.ProjectsClient(credentials=credentials)
-                request = resourcemanager_v1.GetIamPolicyRequest(
+                client = ProjectsClient(credentials=credentials)
+                request = GetIamPolicyRequest(
                     resource=f"projects/{project_id}"
                 )
                 policy = client.get_iam_policy(request=request)
