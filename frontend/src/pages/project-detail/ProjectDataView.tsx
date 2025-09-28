@@ -118,7 +118,6 @@ function ProjectDataView() {
     initiateGoogleOAuth,
     listGoogleProjects,
     listGoogleBuckets,
-    verifyBucketAccess,
   } = useAuth()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
