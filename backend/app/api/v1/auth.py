@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
@@ -273,7 +273,7 @@ async def revoke_google_token(
 
 
 @router.get("/test-service-account")
-async def test_service_account() -> Dict[str, any]:
+async def test_service_account() -> Dict[str, Any]:
   """
   Test endpoint to verify service account configuration.
   """

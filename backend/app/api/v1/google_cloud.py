@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -147,7 +147,7 @@ async def get_project_iam_policy(
     refresh_token: Optional[str] = Query(None, description="User's Google OAuth refresh token"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, any]:
+) -> Dict[str, Any]:
     """
     Get the IAM policy for a project to check permissions.
 
