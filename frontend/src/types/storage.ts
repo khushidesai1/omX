@@ -45,3 +45,10 @@ export interface StorageObjectDeleteRequest {
   bucketName: string
   objectPath: string
 }
+
+export interface CreateStorageConnectionPayload {
+  bucketName: string
+  gcpProjectId?: string
+  prefix?: string
+  description?: string
+}

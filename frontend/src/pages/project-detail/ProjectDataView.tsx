@@ -97,6 +97,7 @@ function ProjectDataView() {
     createStorageUploadUrl,
     createStorageDownloadUrl,
     deleteStorageObject,
+    createStorageConnection,
   } = useAuth()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -114,6 +115,15 @@ function ProjectDataView() {
 
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
+  const [connectionForm, setConnectionForm] = useState({
+    bucketName: '',
+    gcpProjectId: '',
+    prefix: '',
+    description: '',
+  })
+  const [connectError, setConnectError] = useState<string | null>(null)
+  const [isLinking, setIsLinking] = useState(false)
 
   const selectedConnection = useMemo(
     () => connections.find((connection) => connection.id === selectedConnectionId) ?? null,
@@ -124,6 +134,61 @@ function ProjectDataView() {
     () => files.find((file) => file.key === selectedFileKey) ?? null,
     [files, selectedFileKey],
   )
+
+  const openConnectModal = () => {
+    setIsConnectModalOpen(true)
+    setConnectError(null)
+  }
+
+  const handleConnectionFieldChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target
+    setConnectionForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }))
+  }
+
+  const handleCreateConnection = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!workspaceId || !projectId) {
+      return
+    }
+    if (!connectionForm.bucketName.trim()) {
+      setConnectError('Bucket name is required.')
+      return
+    }
+
+    setIsLinking(true)
+    setConnectError(null)
+
+    try {
+      const trimmedBucket = connectionForm.bucketName.trim()
+      const trimmedPrefix = connectionForm.prefix.trim()
+      const newConnection = await createStorageConnection(workspaceId, projectId, {
+        bucketName: connectionForm.bucketName.trim(),
+        gcpProjectId: connectionForm.gcpProjectId.trim() || undefined,
+        prefix: connectionForm.prefix.trim() || undefined,
+        description: connectionForm.description.trim() || undefined,
+      })
+      const refreshed = await listStorageConnections(workspaceId, projectId)
+      setConnections(refreshed)
+      const newlyLinked =
+        refreshed.find(
+          (connection) =>
+            connection.id === newConnection.id ||
+            (connection.bucketName === trimmedBucket && (connection.prefix ?? '') === (trimmedPrefix || '')),
+        ) ?? refreshed[0]
+      setSelectedConnectionId(newlyLinked?.id ?? null)
+      setConnectionForm({ bucketName: '', gcpProjectId: '', prefix: '', description: '' })
+      setIsConnectModalOpen(false)
+    } catch (error) {
+      setConnectError(error instanceof Error ? error.message : 'Unable to link bucket.')
+    } finally {
+      setIsLinking(false)
+    }
+  }
 
   useEffect(() => {
     if (!workspaceId || !projectId) {
@@ -357,6 +422,13 @@ function ProjectDataView() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={openConnectModal}
+            className="inline-flex items-center gap-2 rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-text transition hover:border-brand-primary hover:bg-brand-primary/10"
+          >
+            Connect GCP
+          </button>
+          <button
+            type="button"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/30 text-brand-primary transition hover:border-brand-primary hover:bg-brand-primary/10"
             aria-label="Refresh"
             onClick={() => {
@@ -475,7 +547,7 @@ function ProjectDataView() {
       <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-brand-primary/20 bg-white/90">
         <div className="flex flex-1 flex-col divide-y divide-brand-primary/15 lg:flex-row lg:divide-x lg:divide-y-0">
           <section className="flex min-h-[200px] flex-1 flex-col border-b border-brand-primary/15 bg-white/80 lg:max-w-[240px] lg:border-b-0">
-            <header className="flex items-center gap-2 border-b border-brand-primary/15 bg-white/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+            <header className="flex items-center justify-between border-b border-brand-primary/15 bg-white/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
               <svg
                 aria-hidden
                 xmlns="http://www.w3.org/2000/svg"
@@ -489,6 +561,13 @@ function ProjectDataView() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3" />
               </svg>
               GCP Buckets
+              <button
+                type="button"
+                onClick={openConnectModal}
+                className="text-[11px] font-semibold text-brand-primary transition hover:text-brand-primary-dark"
+              >
+                Add
+              </button>
             </header>
             <div className="flex-1 overflow-y-auto">
               {isLoadingConnections && (
@@ -692,6 +771,129 @@ function ProjectDataView() {
             </svg>
           </span>
           Uploading files…
+        </div>
+      )}
+
+      {isConnectModalOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-brand-text">Connect a GCP bucket</h2>
+                <p className="mt-1 text-sm text-brand-body">
+                  Link a Google Cloud Storage bucket so this project can browse, upload, and stay in sync with your data.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(false)}
+                className="rounded-full border border-brand-primary/30 px-3 py-1 text-xs font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 rounded-2xl bg-brand-primary/10 px-4 py-3 text-sm text-brand-body">
+              <p className="font-semibold text-brand-text">Before you connect</p>
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Sign in to the Google Cloud Console with the account that owns the bucket.</li>
+                <li>Navigate to <strong>IAM &amp; Admin → IAM</strong> and click <strong>Grant access</strong>.</li>
+                <li>
+                  In <strong>New principals</strong>, enter
+                  <code className="ml-2 rounded bg-white/80 px-1 py-[1px] text-xs text-brand-primary">
+                    latch-data@latchbio.iam.gserviceaccount.com
+                  </code>
+                </li>
+                <li>Select the <strong>Storage Admin</strong> role so omX can manage objects and monitor updates.</li>
+                <li>Role assignment can take a few minutes—if verification fails, wait briefly and try again.</li>
+              </ol>
+            </div>
+
+            <form onSubmit={handleCreateConnection} className="mt-6 space-y-4">
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                  Google Cloud project ID
+                </label>
+                <input
+                  type="text"
+                  name="gcpProjectId"
+                  value={connectionForm.gcpProjectId}
+                  onChange={handleConnectionFieldChange}
+                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                  placeholder="example-project"
+                />
+                <p className="text-xs text-brand-muted">
+                  Optional. Provide the project that owns the bucket if it differs from the backend default.
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                  Bucket name
+                </label>
+                <input
+                  type="text"
+                  name="bucketName"
+                  value={connectionForm.bucketName}
+                  onChange={handleConnectionFieldChange}
+                  required
+                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                  placeholder="my-data-bucket"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                  Prefix (optional)
+                </label>
+                <input
+                  type="text"
+                  name="prefix"
+                  value={connectionForm.prefix}
+                  onChange={handleConnectionFieldChange}
+                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                  placeholder="path/to/folder"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                  Description (optional)
+                </label>
+                <textarea
+                  name="description"
+                  value={connectionForm.description}
+                  onChange={handleConnectionFieldChange}
+                  rows={2}
+                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                  placeholder="Notes for collaborators"
+                />
+              </div>
+
+              {connectError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                  {connectError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsConnectModalOpen(false)}
+                  className="rounded-full border border-brand-primary/30 px-4 py-2 text-sm font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLinking}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-dark disabled:cursor-not-allowed disabled:bg-brand-primary/40"
+                >
+                  {isLinking ? 'Linking…' : 'Link bucket'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

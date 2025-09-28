@@ -25,6 +25,7 @@ import type {
   StorageObjectSummary,
   StorageSignedUrlRequest,
   StorageSignedUrlResponse,
+  CreateStorageConnectionPayload,
 } from '../types/storage'
 
 interface AuthContextValue {
@@ -63,6 +64,11 @@ interface AuthContextValue {
     projectId: string,
     payload: StorageObjectDeleteRequest,
   ) => Promise<void>
+  createStorageConnection: (
+    workspaceId: string,
+    projectId: string,
+    payload: CreateStorageConnectionPayload,
+  ) => Promise<StorageConnection>
   fetchWorkspaceDetail: (workspaceId: string) => Promise<WorkspaceDetail>
   updateWorkspace: (workspaceId: string, payload: UpdateWorkspacePayload) => Promise<Workspace>
   deleteWorkspace: (workspaceId: string) => Promise<void>
@@ -630,6 +636,30 @@ function AuthProvider({ children }: { children: ReactNode }) {
     [authorizedFetch],
   )
 
+  const createStorageConnection = useCallback(
+    async (
+      workspaceId: string,
+      projectId: string,
+      payload: CreateStorageConnectionPayload,
+    ) => {
+      const response = await authorizedFetch(
+        `/workspaces/${workspaceId}/projects/${projectId}/storage/connections`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            bucket_name: payload.bucketName,
+            gcp_project_id: payload.gcpProjectId,
+            prefix: payload.prefix,
+            description: payload.description,
+          }),
+        },
+      )
+      const data = await response.json()
+      return mapStorageConnection(data)
+    },
+    [authorizedFetch],
+  )
+
   const fetchWorkspaceDetail = useCallback(
     async (workspaceId: string) => {
       const response = await authorizedFetch(`/workspaces/${workspaceId}`)
@@ -710,6 +740,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       createStorageUploadUrl,
       createStorageDownloadUrl,
       deleteStorageObject,
+      createStorageConnection,
       fetchWorkspaceDetail,
       updateWorkspace,
       deleteWorkspace,
@@ -732,6 +763,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       createStorageUploadUrl,
       createStorageDownloadUrl,
       deleteStorageObject,
+      createStorageConnection,
       fetchWorkspaceDetail,
       updateWorkspace,
       deleteWorkspace,
