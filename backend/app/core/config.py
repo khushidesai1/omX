@@ -28,6 +28,15 @@ class Settings(BaseSettings):
   gcs_signed_url_ttl_seconds: int = Field(default=900, alias="GCS_SIGNED_URL_TTL_SECONDS")
   gcs_upload_url_ttl_seconds: int = Field(default=900, alias="GCS_UPLOAD_URL_TTL_SECONDS")
 
+  # Google OAuth Configuration
+  google_oauth_client_id: Optional[str] = Field(default=None, alias="GOOGLE_OAUTH_CLIENT_ID")
+  google_oauth_client_secret: Optional[str] = Field(default=None, alias="GOOGLE_OAUTH_CLIENT_SECRET")
+  google_oauth_redirect_uri: str = Field(default="http://localhost:8000/api/auth/google/callback", alias="GOOGLE_OAUTH_REDIRECT_URI")
+
+  # omX Service Account Configuration
+  omx_service_account_email: Optional[str] = Field(default=None, alias="OMX_SERVICE_ACCOUNT_EMAIL")
+  omx_service_account_key_path: Optional[str] = Field(default=None, alias="OMX_SERVICE_ACCOUNT_KEY_PATH")
+
   @field_validator("cors_origins", mode="before")
   @classmethod
   def _split_cors_origins(cls, value: AnyHttpUrl | str | List[AnyHttpUrl]) -> List[AnyHttpUrl] | str:

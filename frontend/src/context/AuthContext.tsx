@@ -28,6 +28,23 @@ import type {
   CreateStorageConnectionPayload,
 } from '../types/storage'
 
+interface GoogleProject {
+  id: string
+  name: string
+  number?: string
+  state: string
+  labels?: Record<string, string>
+}
+
+interface GoogleBucket {
+  name: string
+  location?: string
+  storageClass?: string
+  created?: string
+  metageneration?: number
+  versioningEnabled?: boolean
+}
+
 interface AuthContextValue {
   authState: AuthState
   workspaces: Workspace[]
@@ -73,6 +90,12 @@ interface AuthContextValue {
   updateWorkspace: (workspaceId: string, payload: UpdateWorkspacePayload) => Promise<Workspace>
   deleteWorkspace: (workspaceId: string) => Promise<void>
   clearError: () => void
+
+  // Google OAuth methods
+  initiateGoogleOAuth: (redirectTo?: string) => Promise<string>
+  listGoogleProjects: (accessToken: string, refreshToken?: string) => Promise<GoogleProject[]>
+  listGoogleBuckets: (projectId: string, accessToken: string, refreshToken?: string) => Promise<GoogleBucket[]>
+  verifyBucketAccess: (projectId: string, bucketName: string, accessToken: string, refreshToken?: string) => Promise<{userHasAccess: boolean; serviceAccountHasAccess: boolean}>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -722,6 +745,77 @@ function AuthProvider({ children }: { children: ReactNode }) {
     [projectsByWorkspace],
   )
 
+  // Google OAuth methods
+  const initiateGoogleOAuth = useCallback(
+    async (redirectTo?: string) => {
+      ensureApiBaseUrl()
+      const searchParams = new URLSearchParams()
+      if (redirectTo) {
+        searchParams.set('redirect_to', redirectTo)
+      }
+
+      const response = await fetch(`${apiBaseUrl}/auth/google/login?${searchParams.toString()}`)
+      if (!response.ok) {
+        const message = await parseErrorMessage(response)
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      return data.authorization_url as string
+    },
+    [],
+  )
+
+  const listGoogleProjects = useCallback(
+    async (accessToken: string, refreshToken?: string): Promise<GoogleProject[]> => {
+      ensureApiBaseUrl()
+      const searchParams = new URLSearchParams({ access_token: accessToken })
+      if (refreshToken) {
+        searchParams.set('refresh_token', refreshToken)
+      }
+
+      const response = await authorizedFetch(`/google-cloud/projects?${searchParams.toString()}`)
+      const data = await response.json()
+      return data.projects ?? []
+    },
+    [authorizedFetch],
+  )
+
+  const listGoogleBuckets = useCallback(
+    async (projectId: string, accessToken: string, refreshToken?: string): Promise<GoogleBucket[]> => {
+      ensureApiBaseUrl()
+      const searchParams = new URLSearchParams({ access_token: accessToken })
+      if (refreshToken) {
+        searchParams.set('refresh_token', refreshToken)
+      }
+
+      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets?${searchParams.toString()}`)
+      const data = await response.json()
+      return data.buckets ?? []
+    },
+    [authorizedFetch],
+  )
+
+  const verifyBucketAccess = useCallback(
+    async (projectId: string, bucketName: string, accessToken: string, refreshToken?: string) => {
+      ensureApiBaseUrl()
+      const searchParams = new URLSearchParams({ access_token: accessToken })
+      if (refreshToken) {
+        searchParams.set('refresh_token', refreshToken)
+      }
+
+      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets/${bucketName}/verify-access?${searchParams.toString()}`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+      return {
+        userHasAccess: data.user_has_access ?? false,
+        serviceAccountHasAccess: data.service_account_has_access ?? false,
+      }
+    },
+    [authorizedFetch],
+  )
+
   const value = useMemo(
     () => ({
       authState,
@@ -745,6 +839,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       updateWorkspace,
       deleteWorkspace,
       clearError,
+      initiateGoogleOAuth,
+      listGoogleProjects,
+      listGoogleBuckets,
+      verifyBucketAccess,
     }),
     [
       authState,
@@ -768,6 +866,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       updateWorkspace,
       deleteWorkspace,
       clearError,
+      initiateGoogleOAuth,
+      listGoogleProjects,
+      listGoogleBuckets,
+      verifyBucketAccess,
     ],
   )
 

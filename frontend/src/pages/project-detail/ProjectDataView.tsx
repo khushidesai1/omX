@@ -13,6 +13,23 @@ import { useAuth } from '../../hooks/useAuth'
 import type { Project } from '../../types/project'
 import type { StorageConnection } from '../../types/storage'
 
+interface GoogleProject {
+  id: string
+  name: string
+  number?: string
+  state: string
+  labels?: Record<string, string>
+}
+
+interface GoogleBucket {
+  name: string
+  location?: string
+  storageClass?: string
+  created?: string
+  metageneration?: number
+  versioningEnabled?: boolean
+}
+
 interface ProjectOutletContext {
   project: Project
   workspaceName: string
@@ -98,6 +115,10 @@ function ProjectDataView() {
     createStorageDownloadUrl,
     deleteStorageObject,
     createStorageConnection,
+    initiateGoogleOAuth,
+    listGoogleProjects,
+    listGoogleBuckets,
+    verifyBucketAccess,
   } = useAuth()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -125,6 +146,16 @@ function ProjectDataView() {
   const [connectError, setConnectError] = useState<string | null>(null)
   const [isLinking, setIsLinking] = useState(false)
 
+  // Google OAuth state
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null)
+  const [googleRefreshToken, setGoogleRefreshToken] = useState<string | null>(null)
+  const [googleProjects, setGoogleProjects] = useState<GoogleProject[]>([])
+  const [googleBuckets, setGoogleBuckets] = useState<GoogleBucket[]>([])
+  const [isLoadingGoogleData, setIsLoadingGoogleData] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [selectedGoogleProjectId, setSelectedGoogleProjectId] = useState<string>('')
+  const [isGoogleAuthenticated, setIsGoogleAuthenticated] = useState(false)
+
   const selectedConnection = useMemo(
     () => connections.find((connection) => connection.id === selectedConnectionId) ?? null,
     [connections, selectedConnectionId],
@@ -138,7 +169,84 @@ function ProjectDataView() {
   const openConnectModal = () => {
     setIsConnectModalOpen(true)
     setConnectError(null)
+    setGoogleError(null)
   }
+
+  // Google OAuth handlers
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleError(null)
+      const authUrl = await initiateGoogleOAuth(window.location.href)
+      window.location.href = authUrl
+    } catch (error) {
+      setGoogleError(error instanceof Error ? error.message : 'Failed to initiate Google login')
+    }
+  }
+
+  const loadGoogleProjects = useCallback(async () => {
+    if (!googleAccessToken) return
+
+    setIsLoadingGoogleData(true)
+    setGoogleError(null)
+
+    try {
+      const projects = await listGoogleProjects(googleAccessToken, googleRefreshToken || undefined)
+      setGoogleProjects(projects)
+    } catch (error) {
+      setGoogleError(error instanceof Error ? error.message : 'Failed to load Google projects')
+    } finally {
+      setIsLoadingGoogleData(false)
+    }
+  }, [googleAccessToken, googleRefreshToken, listGoogleProjects])
+
+  const loadGoogleBuckets = useCallback(async (projectId: string) => {
+    if (!googleAccessToken || !projectId) return
+
+    setIsLoadingGoogleData(true)
+    setGoogleError(null)
+
+    try {
+      const buckets = await listGoogleBuckets(projectId, googleAccessToken, googleRefreshToken || undefined)
+      setGoogleBuckets(buckets)
+    } catch (error) {
+      setGoogleError(error instanceof Error ? error.message : 'Failed to load buckets')
+      setGoogleBuckets([])
+    } finally {
+      setIsLoadingGoogleData(false)
+    }
+  }, [googleAccessToken, googleRefreshToken, listGoogleBuckets])
+
+  // Handle OAuth callback on page load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const oauthSuccess = urlParams.get('oauth_success')
+    const accessToken = urlParams.get('access_token')
+    const refreshToken = urlParams.get('refresh_token')
+
+    if (oauthSuccess === 'true') {
+      // In a real implementation, you'd get these from a secure callback
+      // For now, we'll simulate with localStorage or state management
+      if (accessToken) {
+        setGoogleAccessToken(accessToken)
+        setGoogleRefreshToken(refreshToken)
+        setIsGoogleAuthenticated(true)
+      }
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isGoogleAuthenticated && googleAccessToken) {
+      loadGoogleProjects()
+    }
+  }, [isGoogleAuthenticated, googleAccessToken, loadGoogleProjects])
+
+  useEffect(() => {
+    if (selectedGoogleProjectId && googleAccessToken) {
+      loadGoogleBuckets(selectedGoogleProjectId)
+    }
+  }, [selectedGoogleProjectId, googleAccessToken, loadGoogleBuckets])
 
   const handleConnectionFieldChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -793,54 +901,129 @@ function ProjectDataView() {
               </button>
             </div>
 
-            <div className="mt-4 space-y-3 rounded-2xl bg-brand-primary/10 px-4 py-3 text-sm text-brand-body">
-              <p className="font-semibold text-brand-text">Before you connect</p>
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Sign in to the Google Cloud Console with the account that owns the bucket.</li>
-                <li>Navigate to <strong>IAM &amp; Admin → IAM</strong> and click <strong>Grant access</strong>.</li>
-                <li>
-                  In <strong>New principals</strong>, enter
-                  <code className="ml-2 rounded bg-white/80 px-1 py-[1px] text-xs text-brand-primary">
-                    latch-data@latchbio.iam.gserviceaccount.com
-                  </code>
-                </li>
-                <li>Select the <strong>Storage Admin</strong> role so omX can manage objects and monitor updates.</li>
-                <li>Role assignment can take a few minutes—if verification fails, wait briefly and try again.</li>
-              </ol>
+            <div className="mt-4 space-y-4">
+              {!isGoogleAuthenticated ? (
+                <div className="space-y-3 rounded-2xl bg-brand-primary/10 px-4 py-3 text-sm text-brand-body">
+                  <p className="font-semibold text-brand-text">Step 1: Connect your Google account</p>
+                  <p>Sign in with Google to browse your projects and buckets.</p>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Sign in with Google
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-800">
+                    <p className="font-semibold">✓ Google account connected</p>
+                    <p>Choose a project and bucket from your Google Cloud account.</p>
+                  </div>
+
+                  <div className="space-y-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p className="font-semibold">Service Account Setup Required</p>
+                    <p>To use omX with your bucket, grant access to our service account:</p>
+                    <code className="block rounded bg-white/80 px-2 py-1 text-xs font-mono">
+                      omx-service@your-project.iam.gserviceaccount.com
+                    </code>
+                    <p className="text-xs">Add this service account with <strong>Storage Admin</strong> role in your GCP project's IAM settings.</p>
+                  </div>
+                </>
+              )}
             </div>
 
             <form onSubmit={handleCreateConnection} className="mt-6 space-y-4">
-              <div className="grid gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
-                  Google Cloud project ID
-                </label>
-                <input
-                  type="text"
-                  name="gcpProjectId"
-                  value={connectionForm.gcpProjectId}
-                  onChange={handleConnectionFieldChange}
-                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
-                  placeholder="example-project"
-                />
-                <p className="text-xs text-brand-muted">
-                  Optional. Provide the project that owns the bucket if it differs from the backend default.
-                </p>
-              </div>
+              {isGoogleAuthenticated ? (
+                <>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                      Google Cloud Project
+                    </label>
+                    <select
+                      value={selectedGoogleProjectId}
+                      onChange={(e) => {
+                        setSelectedGoogleProjectId(e.target.value)
+                        setConnectionForm(prev => ({ ...prev, gcpProjectId: e.target.value }))
+                      }}
+                      className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                      disabled={isLoadingGoogleData}
+                    >
+                      <option value="">Select a project...</option>
+                      {googleProjects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name} ({project.id})
+                        </option>
+                      ))}
+                    </select>
+                    {isLoadingGoogleData && <p className="text-xs text-brand-muted">Loading projects...</p>}
+                  </div>
 
-              <div className="grid gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
-                  Bucket name
-                </label>
-                <input
-                  type="text"
-                  name="bucketName"
-                  value={connectionForm.bucketName}
-                  onChange={handleConnectionFieldChange}
-                  required
-                  className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
-                  placeholder="my-data-bucket"
-                />
-              </div>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                      Storage Bucket
+                    </label>
+                    <select
+                      value={connectionForm.bucketName}
+                      onChange={(e) => setConnectionForm(prev => ({ ...prev, bucketName: e.target.value }))}
+                      className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                      disabled={!selectedGoogleProjectId || isLoadingGoogleData}
+                    >
+                      <option value="">Select a bucket...</option>
+                      {googleBuckets.map((bucket) => (
+                        <option key={bucket.name} value={bucket.name}>
+                          {bucket.name} ({bucket.location})
+                        </option>
+                      ))}
+                    </select>
+                    {!selectedGoogleProjectId && <p className="text-xs text-brand-muted">Select a project first</p>}
+                    {selectedGoogleProjectId && isLoadingGoogleData && <p className="text-xs text-brand-muted">Loading buckets...</p>}
+                    {selectedGoogleProjectId && !isLoadingGoogleData && googleBuckets.length === 0 && (
+                      <p className="text-xs text-amber-600">No buckets found in this project</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                      Google Cloud project ID
+                    </label>
+                    <input
+                      type="text"
+                      name="gcpProjectId"
+                      value={connectionForm.gcpProjectId}
+                      onChange={handleConnectionFieldChange}
+                      className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                      placeholder="example-project"
+                    />
+                    <p className="text-xs text-brand-muted">
+                      Enter manually or sign in with Google to browse projects.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
+                      Bucket name
+                    </label>
+                    <input
+                      type="text"
+                      name="bucketName"
+                      value={connectionForm.bucketName}
+                      onChange={handleConnectionFieldChange}
+                      required
+                      className="rounded-2xl border border-brand-primary/30 bg-white px-4 py-2 text-sm text-brand-text focus:border-brand-primary focus:outline-none"
+                      placeholder="my-data-bucket"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="grid gap-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-muted">
@@ -873,6 +1056,12 @@ function ProjectDataView() {
               {connectError && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
                   {connectError}
+                </div>
+              )}
+
+              {googleError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                  {googleError}
                 </div>
               )}
 

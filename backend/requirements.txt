@@ -14,3 +14,6 @@ email-validator==2.1.0.post1
 requests==2.31.0
 google-cloud-storage==2.18.2
 google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-cloud-resource-manager==1.12.5
+google-api-python-client==2.147.0

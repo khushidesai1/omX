@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
+from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +27,7 @@ from app.schemas.user import (
   UserRead,
 )
 from app.services.email import send_access_request_email
+from app.services.google_oauth import GoogleOAuthError, google_oauth_service
 
 
 router = APIRouter()
@@ -129,3 +132,141 @@ async def request_access(payload: AccessRequest) -> MessageResponse:
   normalized_email = _normalize_email(payload.email)
   send_access_request_email(normalized_email)
   return MessageResponse(message="Access request submitted.")
+
+
+# Google OAuth endpoints
+
+@router.get("/google/login")
+async def google_login(
+    redirect_to: Optional[str] = Query(None, description="URL to redirect to after successful authentication")
+) -> Dict[str, str]:
+  """
+  Initiate Google OAuth login flow.
+
+  Returns authorization URL that frontend should redirect user to.
+  """
+  try:
+    # Include redirect_to in state if provided
+    state = f"redirect_to={redirect_to}" if redirect_to else None
+    auth_url, state = google_oauth_service.get_authorization_url(state=state)
+
+    return {
+      "authorization_url": auth_url,
+      "state": state
+    }
+  except GoogleOAuthError as e:
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail=f"Failed to initiate OAuth flow: {str(e)}"
+    ) from e
+
+
+@router.get("/google/callback")
+async def google_callback(
+    code: str = Query(..., description="Authorization code from Google"),
+    state: Optional[str] = Query(None, description="State parameter for security"),
+    error: Optional[str] = Query(None, description="Error from OAuth provider"),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+  """
+  Handle Google OAuth callback.
+
+  This endpoint processes the authorization code and creates/updates user session.
+  """
+  if error:
+    # User denied authorization or other OAuth error occurred
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"OAuth authorization failed: {error}"
+    )
+
+  if not code:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="Authorization code is required"
+    )
+
+  try:
+    # Exchange authorization code for tokens
+    token_data = await google_oauth_service.exchange_code_for_tokens(code, state or "")
+
+    # Extract user information
+    user_info = token_data["user_info"]
+
+    # TODO: Store or update user OAuth tokens in database
+    # This would involve:
+    # 1. Finding/creating user by email
+    # 2. Storing OAuth tokens securely
+    # 3. Creating/updating user session
+
+    # For now, redirect with success status
+    # Extract redirect URL from state if provided
+    redirect_url = "/"
+    if state and state.startswith("redirect_to="):
+      redirect_url = state[12:]  # Remove "redirect_to=" prefix
+
+    # In production, you'd redirect to frontend with success token
+    return RedirectResponse(
+      url=f"{redirect_url}?oauth_success=true&email={user_info['email']}",
+      status_code=status.HTTP_302_FOUND
+    )
+
+  except GoogleOAuthError as e:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"Failed to process OAuth callback: {str(e)}"
+    ) from e
+
+
+@router.post("/google/refresh")
+async def refresh_google_token(
+    refresh_token: str,
+    current_user: User = Depends(get_current_active_user),
+) -> Dict[str, str]:
+  """
+  Refresh expired Google access token.
+  """
+  try:
+    token_data = await google_oauth_service.refresh_access_token(refresh_token)
+
+    # TODO: Update stored tokens in database
+
+    return {
+      "access_token": token_data["access_token"],
+      "expires_in": str(token_data.get("expires_in", 3600)),
+      "token_type": token_data.get("token_type", "Bearer")
+    }
+
+  except GoogleOAuthError as e:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail=f"Failed to refresh token: {str(e)}"
+    ) from e
+
+
+@router.post("/google/revoke")
+async def revoke_google_token(
+    token: str,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, str]:
+  """
+  Revoke Google OAuth tokens and remove stored credentials.
+  """
+  try:
+    success = await google_oauth_service.revoke_token(token)
+
+    if success:
+      # TODO: Remove stored OAuth tokens from database
+      return {"message": "Token revoked successfully"}
+    else:
+      raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Failed to revoke token"
+      )
+
+  except GoogleOAuthError as e:
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail=f"Failed to revoke token: {str(e)}"
+    ) from e
