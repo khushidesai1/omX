@@ -26,16 +26,32 @@ class GoogleCloudService:
 
     def _load_service_account_credentials(self) -> Optional[service_account.Credentials]:
         """Load omX service account credentials for impersonation."""
-        if not settings.omx_service_account_key_path:
-            return None
 
-        try:
-            return service_account.Credentials.from_service_account_file(
-                settings.omx_service_account_key_path,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-        except Exception:
-            return None
+        # Try base64-encoded key first (for Render deployment)
+        if settings.omx_service_account_key_base64:
+            try:
+                import base64
+                import json
+                key_data = base64.b64decode(settings.omx_service_account_key_base64)
+                key_info = json.loads(key_data)
+                return service_account.Credentials.from_service_account_info(
+                    key_info,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+            except Exception as e:
+                print(f"Failed to load base64 service account key: {e}")
+
+        # Fall back to file path (for local development)
+        if settings.omx_service_account_key_path:
+            try:
+                return service_account.Credentials.from_service_account_file(
+                    settings.omx_service_account_key_path,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+            except Exception as e:
+                print(f"Failed to load service account key from file: {e}")
+
+        return None
 
     def _create_user_credentials(self, access_token: str, refresh_token: Optional[str] = None) -> OAuth2Credentials:
         """Create OAuth2 credentials from user tokens."""

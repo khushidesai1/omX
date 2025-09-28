@@ -270,3 +270,31 @@ async def revoke_google_token(
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       detail=f"Failed to revoke token: {str(e)}"
     ) from e
+
+
+@router.get("/test-service-account")
+async def test_service_account() -> Dict[str, any]:
+  """
+  Test endpoint to verify service account configuration.
+  """
+  try:
+    credentials = google_oauth_service._get_service_account_credentials()
+    if credentials:
+      return {
+        "status": "success",
+        "message": "Service account loaded successfully",
+        "service_account_email": credentials.service_account_email,
+        "project_id": getattr(credentials, 'project_id', 'Not available')
+      }
+    else:
+      return {
+        "status": "error",
+        "message": "Failed to load service account credentials",
+        "details": "Check OMX_SERVICE_ACCOUNT_KEY_BASE64 or OMX_SERVICE_ACCOUNT_KEY_PATH environment variables"
+      }
+  except Exception as e:
+    return {
+      "status": "error",
+      "message": f"Error loading service account: {str(e)}",
+      "details": "Check your service account configuration and key format"
+    }

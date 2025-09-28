@@ -36,6 +36,7 @@ class Settings(BaseSettings):
   # omX Service Account Configuration
   omx_service_account_email: Optional[str] = Field(default=None, alias="OMX_SERVICE_ACCOUNT_EMAIL")
   omx_service_account_key_path: Optional[str] = Field(default=None, alias="OMX_SERVICE_ACCOUNT_KEY_PATH")
+  omx_service_account_key_base64: Optional[str] = Field(default=None, alias="OMX_SERVICE_ACCOUNT_KEY_BASE64")
 
   @field_validator("cors_origins", mode="before")
   @classmethod
