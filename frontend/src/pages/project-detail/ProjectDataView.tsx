@@ -221,17 +221,21 @@ function ProjectDataView() {
     const oauthSuccess = urlParams.get('oauth_success')
     const accessToken = urlParams.get('access_token')
     const refreshToken = urlParams.get('refresh_token')
+    const email = urlParams.get('email')
 
     if (oauthSuccess === 'true') {
-      // In a real implementation, you'd get these from a secure callback
-      // For now, we'll simulate with localStorage or state management
       if (accessToken) {
         setGoogleAccessToken(accessToken)
         setGoogleRefreshToken(refreshToken)
         setIsGoogleAuthenticated(true)
+        setGoogleError(null)
+        console.log('OAuth successful for:', email)
+      } else {
+        setGoogleError('OAuth completed but no access token received')
       }
       // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, document.title, newUrl)
     }
   }, [])
 

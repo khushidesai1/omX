@@ -199,15 +199,19 @@ async def google_callback(
     # 2. Storing OAuth tokens securely
     # 3. Creating/updating user session
 
-    # For now, redirect with success status
+    # For now, redirect with success status and tokens
     # Extract redirect URL from state if provided
     redirect_url = "/"
     if state and state.startswith("redirect_to="):
       redirect_url = state[12:]  # Remove "redirect_to=" prefix
 
-    # In production, you'd redirect to frontend with success token
+    # Create a more secure callback with tokens in URL params (temporary solution)
+    # In production, you'd want to store these in a secure session or database
+    access_token = token_data["access_token"]
+    refresh_token = token_data.get("refresh_token", "")
+
     return RedirectResponse(
-      url=f"{redirect_url}?oauth_success=true&email={user_info['email']}",
+      url=f"{redirect_url}?oauth_success=true&email={user_info['email']}&access_token={access_token}&refresh_token={refresh_token}",
       status_code=status.HTTP_302_FOUND
     )
 
