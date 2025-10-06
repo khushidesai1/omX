@@ -52,6 +52,9 @@ interface FileEntry {
   storageClass?: string
 }
 
+const serviceAccountEmail =
+  import.meta.env.VITE_OMX_SERVICE_ACCOUNT_EMAIL || 'omx-service@your-project.iam.gserviceaccount.com'
+
 const bytesFormatter = (bytes?: number) => {
   if (bytes == null) {
     return '—'
@@ -934,7 +937,7 @@ function ProjectDataView() {
                     <p className="font-semibold">Service Account Setup Required</p>
                     <p>To use omX with your bucket, grant access to our service account:</p>
                     <code className="block rounded bg-white/80 px-2 py-1 text-xs font-mono">
-                      omx-service@your-project.iam.gserviceaccount.com
+                      {serviceAccountEmail}
                     </code>
                     <p className="text-xs">Add this service account with <strong>Storage Admin</strong> role in your GCP project's IAM settings.</p>
                   </div>

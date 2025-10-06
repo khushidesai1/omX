@@ -34,6 +34,7 @@ class GoogleOAuthService:
         # OAuth 2.0 scopes needed for listing projects and storage buckets
         self.scopes = [
             "https://www.googleapis.com/auth/cloud-platform.read-only",
+            "https://www.googleapis.com/auth/cloudplatformprojects.readonly",
             "https://www.googleapis.com/auth/devstorage.read_only",
             "openid",
             "email",

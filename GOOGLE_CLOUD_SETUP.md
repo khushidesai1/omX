@@ -79,6 +79,9 @@ OMX_SERVICE_ACCOUNT_KEY_PATH=/path/to/service-account-key.json
 # Existing GCS configuration (keep for backward compatibility)
 GCS_PROJECT_ID=your-default-project-id
 GCS_CREDENTIALS_PATH=/path/to/service-account-key.json
+
+# Frontend service account display (optional but recommended)
+VITE_OMX_SERVICE_ACCOUNT_EMAIL=omx-service@your-project.iam.gserviceaccount.com
 ```
 
 ## Step 5: Install Required Dependencies
