@@ -11,7 +11,7 @@ from app.api.deps import get_current_active_user, get_db
 from app.models import User
 from app.services.google_cloud import GoogleCloudError, google_cloud_service
 
-router = APIRouter(prefix="/google-cloud")
+router = APIRouter()
 
 
 @router.get("/projects")
