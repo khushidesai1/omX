@@ -32,6 +32,22 @@ def create_access_token(subject: str, session_id: str, expires_delta: Optional[t
   return token, expire
 
 
+def create_signed_state(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+  payload = data.copy()
+  if "nonce" not in payload:
+    payload["nonce"] = secrets.token_urlsafe(16)
+  expire = _now_utc() + (expires_delta or timedelta(minutes=10))
+  payload["exp"] = expire
+  return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_signed_state(token: str) -> dict[str, Any]:
+  try:
+    return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+  except JWTError as exc:  # pragma: no cover
+    raise ValueError("Invalid state token") from exc
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
   try:
     return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])

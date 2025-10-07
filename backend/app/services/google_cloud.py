@@ -86,20 +86,18 @@ class GoogleCloudService:
 
             projects = []
             try:
-                # List all projects accessible to the user
-                request = resourcemanager_v3.ListProjectsRequest()
-                page_result = client.list_projects(request=request)
+                # Search all projects the caller can access. Using search avoids needing an org/parent filter.
+                request = resourcemanager_v3.SearchProjectsRequest(query="state:ACTIVE")
+                page_result = client.search_projects(request=request)
 
                 for project in page_result:
-                    # Only include active projects
-                    if project.state == resourcemanager_v3.Project.State.ACTIVE:
-                        projects.append({
-                            "id": project.project_id,
-                            "name": project.display_name or project.project_id,
-                            "number": project.name.split("/")[-1] if project.name else None,
-                            "state": project.state.name,
-                            "labels": dict(project.labels) if project.labels else {},
-                        })
+                    projects.append({
+                        "id": project.project_id,
+                        "name": project.display_name or project.project_id,
+                        "number": project.name.split("/")[-1] if project.name else None,
+                        "state": project.state.name,
+                        "labels": dict(project.labels) if project.labels else {},
+                    })
 
             except Exception as e:
                 raise GoogleCloudError(f"Failed to list projects: {str(e)}") from e

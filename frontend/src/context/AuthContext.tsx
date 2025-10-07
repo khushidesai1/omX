@@ -45,6 +45,18 @@ interface GoogleBucket {
   versioningEnabled?: boolean
 }
 
+interface GoogleAuthStatus {
+  connected: boolean
+  googleEmail?: string
+  expiresAt?: string
+}
+
+interface GoogleRefreshResult {
+  accessToken: string
+  expiresIn: number
+  tokenType: string
+}
+
 interface AuthContextValue {
   authState: AuthState
   workspaces: Workspace[]
@@ -93,9 +105,12 @@ interface AuthContextValue {
 
   // Google OAuth methods
   initiateGoogleOAuth: (redirectTo?: string) => Promise<string>
-  listGoogleProjects: (accessToken: string, refreshToken?: string) => Promise<GoogleProject[]>
-  listGoogleBuckets: (projectId: string, accessToken: string, refreshToken?: string) => Promise<GoogleBucket[]>
-  verifyBucketAccess: (projectId: string, bucketName: string, accessToken: string, refreshToken?: string) => Promise<{userHasAccess: boolean; serviceAccountHasAccess: boolean}>
+  listGoogleProjects: () => Promise<GoogleProject[]>
+  listGoogleBuckets: (projectId: string) => Promise<GoogleBucket[]>
+  verifyBucketAccess: (projectId: string, bucketName: string) => Promise<{userHasAccess: boolean; serviceAccountHasAccess: boolean}>
+  getGoogleAuthStatus: () => Promise<GoogleAuthStatus>
+  refreshGoogleAccessToken: () => Promise<GoogleRefreshResult>
+  revokeGoogleAccess: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -754,27 +769,17 @@ function AuthProvider({ children }: { children: ReactNode }) {
         searchParams.set('redirect_to', redirectTo)
       }
 
-      const response = await fetch(`${apiBaseUrl}/auth/google/login?${searchParams.toString()}`)
-      if (!response.ok) {
-        const message = await parseErrorMessage(response)
-        throw new Error(message)
-      }
-
+      const response = await authorizedFetch(`/auth/google/login?${searchParams.toString()}`)
       const data = await response.json()
       return data.authorization_url as string
     },
-    [],
+    [authorizedFetch],
   )
 
   const listGoogleProjects = useCallback(
-    async (accessToken: string, refreshToken?: string): Promise<GoogleProject[]> => {
+    async (): Promise<GoogleProject[]> => {
       ensureApiBaseUrl()
-      const searchParams = new URLSearchParams({ access_token: accessToken })
-      if (refreshToken) {
-        searchParams.set('refresh_token', refreshToken)
-      }
-
-      const response = await authorizedFetch(`/google-cloud/projects?${searchParams.toString()}`)
+      const response = await authorizedFetch('/google-cloud/projects')
       const data = await response.json()
       return data.projects ?? []
     },
@@ -782,14 +787,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const listGoogleBuckets = useCallback(
-    async (projectId: string, accessToken: string, refreshToken?: string): Promise<GoogleBucket[]> => {
+    async (projectId: string): Promise<GoogleBucket[]> => {
       ensureApiBaseUrl()
-      const searchParams = new URLSearchParams({ access_token: accessToken })
-      if (refreshToken) {
-        searchParams.set('refresh_token', refreshToken)
-      }
-
-      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets?${searchParams.toString()}`)
+      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets`)
       const data = await response.json()
       return data.buckets ?? []
     },
@@ -797,14 +797,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const verifyBucketAccess = useCallback(
-    async (projectId: string, bucketName: string, accessToken: string, refreshToken?: string) => {
+    async (projectId: string, bucketName: string) => {
       ensureApiBaseUrl()
-      const searchParams = new URLSearchParams({ access_token: accessToken })
-      if (refreshToken) {
-        searchParams.set('refresh_token', refreshToken)
-      }
-
-      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets/${bucketName}/verify-access?${searchParams.toString()}`, {
+      const response = await authorizedFetch(`/google-cloud/projects/${projectId}/buckets/${bucketName}/verify-access`, {
         method: 'POST',
       })
       const data = await response.json()
@@ -815,6 +810,33 @@ function AuthProvider({ children }: { children: ReactNode }) {
     },
     [authorizedFetch],
   )
+
+  const getGoogleAuthStatus = useCallback(async (): Promise<GoogleAuthStatus> => {
+    ensureApiBaseUrl()
+    const response = await authorizedFetch('/auth/google/status')
+    const data = await response.json()
+    return {
+      connected: Boolean(data.connected),
+      googleEmail: data.google_email ?? undefined,
+      expiresAt: data.expires_at ?? undefined,
+    }
+  }, [authorizedFetch])
+
+  const refreshGoogleAccessToken = useCallback(async (): Promise<GoogleRefreshResult> => {
+    ensureApiBaseUrl()
+    const response = await authorizedFetch('/auth/google/refresh', { method: 'POST' })
+    const data = await response.json()
+    return {
+      accessToken: data.access_token,
+      expiresIn: Number(data.expires_in ?? 0),
+      tokenType: typeof data.token_type === 'string' ? data.token_type : 'Bearer',
+    }
+  }, [authorizedFetch])
+
+  const revokeGoogleAccess = useCallback(async () => {
+    ensureApiBaseUrl()
+    await authorizedFetch('/auth/google/revoke', { method: 'POST' })
+  }, [authorizedFetch])
 
   const value = useMemo(
     () => ({
@@ -843,6 +865,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       listGoogleProjects,
       listGoogleBuckets,
       verifyBucketAccess,
+      getGoogleAuthStatus,
+      refreshGoogleAccessToken,
+      revokeGoogleAccess,
     }),
     [
       authState,
@@ -870,6 +895,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       listGoogleProjects,
       listGoogleBuckets,
       verifyBucketAccess,
+      getGoogleAuthStatus,
+      refreshGoogleAccessToken,
+      revokeGoogleAccess,
     ],
   )
 

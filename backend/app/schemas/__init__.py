@@ -1,4 +1,4 @@
-from .auth import LogoutResponse, TokenResponse
+from .auth import GoogleAuthStatus, GoogleRefreshResponse, LogoutResponse, TokenResponse
 from .project import ProjectCreate, ProjectListResponse, ProjectRead, ProjectUpdate
 from .storage import (
   StorageBucketListResponse,
@@ -29,6 +29,8 @@ from .workspace import (
 __all__ = [
   "TokenResponse",
   "LogoutResponse",
+  "GoogleAuthStatus",
+  "GoogleRefreshResponse",
   "ProjectCreate",
   "ProjectListResponse",
   "ProjectRead",

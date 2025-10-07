@@ -23,8 +23,14 @@ class User(Base, TimestampMixin):
   memberships: Mapped[list["WorkspaceMember"]] = relationship(back_populates="user", cascade="all, delete-orphan")
   projects_created: Mapped[list["Project"]] = relationship(back_populates="creator")
   sessions: Mapped[list["UserSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+  google_credentials: Mapped["UserGoogleCredential | None"] = relationship(
+    back_populates="user",
+    cascade="all, delete-orphan",
+    uselist=False,
+  )
 
 
 from app.models.workspace import Workspace, WorkspaceMember  # noqa: E402  # isort:skip
 from app.models.project import Project  # noqa: E402  # isort:skip
 from app.models.session import UserSession  # noqa: E402  # isort:skip
+from app.models.google_credentials import UserGoogleCredential  # noqa: E402  # isort:skip

@@ -10,13 +10,15 @@ from app.api.deps import get_current_active_user, get_db, oauth2_scheme
 from app.core.config import settings
 from app.core.security import (
   create_access_token,
+  create_signed_state,
   create_session_identifier,
+  decode_signed_state,
   get_password_hash,
   hash_token,
   verify_password,
 )
 from app.models import AllowedEmail, User, UserSession
-from app.schemas.auth import LogoutResponse, TokenResponse
+from app.schemas.auth import GoogleAuthStatus, GoogleRefreshResponse, LogoutResponse, TokenResponse
 from app.schemas.user import (
   AccessRequest,
   EmailCheckRequest,
@@ -27,6 +29,7 @@ from app.schemas.user import (
   UserRead,
 )
 from app.services.email import send_access_request_email
+from app.services.google_credentials import (delete_credentials, get_credentials, get_decrypted_refresh_token, upsert_credentials)
 from app.services.google_oauth import GoogleOAuthError, google_oauth_service
 
 
@@ -138,142 +141,150 @@ async def request_access(payload: AccessRequest) -> MessageResponse:
 
 @router.get("/google/login")
 async def google_login(
-    redirect_to: Optional[str] = Query(None, description="URL to redirect to after successful authentication")
+    redirect_to: Optional[str] = Query(None, description="URL to redirect to after successful authentication"),
+    current_user: User = Depends(get_current_active_user),
 ) -> Dict[str, str]:
-  """
-  Initiate Google OAuth login flow.
-
-  Returns authorization URL that frontend should redirect user to.
-  """
+  """Generate the Google OAuth authorization URL for the current user."""
   try:
-    # Include redirect_to in state if provided
-    state = f"redirect_to={redirect_to}" if redirect_to else None
-    auth_url, state = google_oauth_service.get_authorization_url(state=state)
-
-    return {
-      "authorization_url": auth_url,
-      "state": state
-    }
+    payload: Dict[str, Any] = {"user_id": current_user.id}
+    if redirect_to:
+      payload["redirect_to"] = redirect_to
+    state_token = create_signed_state(payload)
+    auth_url, _ = google_oauth_service.get_authorization_url(state=state_token)
+    return {"authorization_url": auth_url, "state": state_token}
   except GoogleOAuthError as e:
     raise HTTPException(
       status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      detail=f"Failed to initiate OAuth flow: {str(e)}"
+      detail=f"Failed to initiate OAuth flow: {str(e)}",
     ) from e
 
 
 @router.get("/google/callback")
 async def google_callback(
     code: str = Query(..., description="Authorization code from Google"),
-    state: Optional[str] = Query(None, description="State parameter for security"),
+    state: Optional[str] = Query(None, description="Signed state tracking the initiating user"),
     error: Optional[str] = Query(None, description="Error from OAuth provider"),
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
-  """
-  Handle Google OAuth callback.
-
-  This endpoint processes the authorization code and creates/updates user session.
-  """
   if error:
-    # User denied authorization or other OAuth error occurred
-    raise HTTPException(
-      status_code=status.HTTP_400_BAD_REQUEST,
-      detail=f"OAuth authorization failed: {error}"
-    )
-
-  if not code:
-    raise HTTPException(
-      status_code=status.HTTP_400_BAD_REQUEST,
-      detail="Authorization code is required"
-    )
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"OAuth authorization failed: {error}")
+  if not code or not state:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authorization code and state are required")
 
   try:
-    # Exchange authorization code for tokens
-    token_data = await google_oauth_service.exchange_code_for_tokens(code, state or "")
+    state_data = decode_signed_state(state)
+  except ValueError as exc:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state") from exc
 
-    # Extract user information
-    user_info = token_data["user_info"]
+  user_id = state_data.get("user_id")
+  if not user_id:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth state missing user reference")
 
-    # TODO: Store or update user OAuth tokens in database
-    # This would involve:
-    # 1. Finding/creating user by email
-    # 2. Storing OAuth tokens securely
-    # 3. Creating/updating user session
+  redirect_url = state_data.get("redirect_to") or "/"
 
-    # For now, redirect with success status and tokens
-    # Extract redirect URL from state if provided
-    redirect_url = "/"
-    if state and state.startswith("redirect_to="):
-      redirect_url = state[12:]  # Remove "redirect_to=" prefix
+  try:
+    token_data = await google_oauth_service.exchange_code_for_tokens(code, state)
+  except GoogleOAuthError as exc:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to process OAuth callback: {str(exc)}") from exc
 
-    # Create a more secure callback with tokens in URL params (temporary solution)
-    # In production, you'd want to store these in a secure session or database
-    access_token = token_data["access_token"]
-    refresh_token = token_data.get("refresh_token", "")
+  user_query = await db.execute(select(User).where(User.id == user_id))
+  user = user_query.scalar_one_or_none()
+  if not user:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found for OAuth callback")
 
-    return RedirectResponse(
-      url=f"{redirect_url}?oauth_success=true&email={user_info['email']}&access_token={access_token}&refresh_token={refresh_token}",
-      status_code=status.HTTP_302_FOUND
-    )
+  user_info = token_data.get("user_info", {})
+  scopes = token_data.get("scope")
+  scope_list = scopes.split() if isinstance(scopes, str) else None
 
-  except GoogleOAuthError as e:
-    raise HTTPException(
-      status_code=status.HTTP_400_BAD_REQUEST,
-      detail=f"Failed to process OAuth callback: {str(e)}"
-    ) from e
+  await upsert_credentials(
+    db,
+    user_id=user.id,
+    google_email=user_info.get("email"),
+    access_token=token_data.get("access_token"),
+    refresh_token=token_data.get("refresh_token"),
+    expires_in=token_data.get("expires_in"),
+    scopes=scope_list,
+  )
+  await db.commit()
+
+  return RedirectResponse(url=f"{redirect_url}?oauth_success=true", status_code=status.HTTP_302_FOUND)
 
 
-@router.post("/google/refresh")
-async def refresh_google_token(
-    refresh_token: str,
+@router.get("/google/status", response_model=GoogleAuthStatus)
+async def google_status(
     current_user: User = Depends(get_current_active_user),
-) -> Dict[str, str]:
-  """
-  Refresh expired Google access token.
-  """
+    db: AsyncSession = Depends(get_db),
+) -> GoogleAuthStatus:
+  record = await get_credentials(db, current_user.id)
+  if not record:
+    return GoogleAuthStatus(connected=False)
+  return GoogleAuthStatus(
+    connected=True,
+    google_email=record.google_email,
+    expires_at=record.access_token_expires_at,
+  )
+
+
+@router.post("/google/refresh", response_model=GoogleRefreshResponse)
+async def refresh_google_token(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> GoogleRefreshResponse:
+  record = await get_credentials(db, current_user.id)
+  if not record:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Google account not linked")
+
+  refresh_token = get_decrypted_refresh_token(record)
+  if not refresh_token:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No refresh token stored for user")
+
   try:
     token_data = await google_oauth_service.refresh_access_token(refresh_token)
+  except GoogleOAuthError as exc:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to refresh token: {str(exc)}") from exc
 
-    # TODO: Update stored tokens in database
+  new_refresh = token_data.get("refresh_token") or refresh_token
+  await upsert_credentials(
+    db,
+    user_id=current_user.id,
+    google_email=record.google_email,
+    access_token=token_data.get("access_token"),
+    refresh_token=new_refresh,
+    expires_in=token_data.get("expires_in"),
+    scopes=None,
+  )
+  await db.commit()
 
-    return {
-      "access_token": token_data["access_token"],
-      "expires_in": str(token_data.get("expires_in", 3600)),
-      "token_type": token_data.get("token_type", "Bearer")
-    }
-
-  except GoogleOAuthError as e:
-    raise HTTPException(
-      status_code=status.HTTP_400_BAD_REQUEST,
-      detail=f"Failed to refresh token: {str(e)}"
-    ) from e
+  return GoogleRefreshResponse(
+    access_token=token_data.get("access_token", ""),
+    expires_in=token_data.get("expires_in", 3600),
+    token_type=token_data.get("token_type", "Bearer"),
+  )
 
 
 @router.post("/google/revoke")
 async def revoke_google_token(
-    token: str,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, str]:
-  """
-  Revoke Google OAuth tokens and remove stored credentials.
-  """
-  try:
-    success = await google_oauth_service.revoke_token(token)
+  record = await get_credentials(db, current_user.id)
+  if not record:
+    return {"message": "No Google credentials stored"}
 
-    if success:
-      # TODO: Remove stored OAuth tokens from database
-      return {"message": "Token revoked successfully"}
-    else:
-      raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Failed to revoke token"
-      )
+  refresh_token = get_decrypted_refresh_token(record)
+  success = True
+  if refresh_token:
+    try:
+      success = await google_oauth_service.revoke_token(refresh_token)
+    except GoogleOAuthError:
+      success = False
 
-  except GoogleOAuthError as e:
-    raise HTTPException(
-      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      detail=f"Failed to revoke token: {str(e)}"
-    ) from e
+  await delete_credentials(db, current_user.id)
+  await db.commit()
+
+  if not success:
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to revoke Google token")
+  return {"message": "Google connection revoked"}
 
 
 @router.get("/test-service-account")

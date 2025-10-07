@@ -5,6 +5,7 @@ from app.models.session import UserSession
 from app.models.storage import ProjectStorageConnection
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
+from app.models.google_credentials import UserGoogleCredential
 
 __all__ = [
   "TimestampMixin",
@@ -15,4 +16,5 @@ __all__ = [
   "Project",
   "UserSession",
   "ProjectStorageConnection",
+  "UserGoogleCredential",
 ]

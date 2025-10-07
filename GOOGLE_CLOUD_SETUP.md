@@ -82,6 +82,10 @@ GCS_CREDENTIALS_PATH=/path/to/service-account-key.json
 
 # Frontend service account display (optional but recommended)
 VITE_OMX_SERVICE_ACCOUNT_EMAIL=omx-service@your-project.iam.gserviceaccount.com
+
+# Token storage
+# Google OAuth access/refresh tokens are stored encrypted using SECRET_KEY. Rotate SECRET_KEY to
+# invalidate stored tokens if necessary.
 ```
 
 ## Step 5: Install Required Dependencies

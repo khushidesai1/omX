@@ -121,6 +121,7 @@ function ProjectDataView() {
     initiateGoogleOAuth,
     listGoogleProjects,
     listGoogleBuckets,
+    getGoogleAuthStatus,
   } = useAuth()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -149,14 +150,13 @@ function ProjectDataView() {
   const [isLinking, setIsLinking] = useState(false)
 
   // Google OAuth state
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null)
-  const [googleRefreshToken, setGoogleRefreshToken] = useState<string | null>(null)
   const [googleProjects, setGoogleProjects] = useState<GoogleProject[]>([])
   const [googleBuckets, setGoogleBuckets] = useState<GoogleBucket[]>([])
   const [isLoadingGoogleData, setIsLoadingGoogleData] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
   const [selectedGoogleProjectId, setSelectedGoogleProjectId] = useState<string>('')
   const [isGoogleAuthenticated, setIsGoogleAuthenticated] = useState(false)
+  const [googleConnectedEmail, setGoogleConnectedEmail] = useState<string | null>(null)
 
   const selectedConnection = useMemo(
     () => connections.find((connection) => connection.id === selectedConnectionId) ?? null,
@@ -185,30 +185,43 @@ function ProjectDataView() {
     }
   }
 
+  const refreshGoogleStatus = useCallback(async () => {
+    try {
+      setGoogleError(null)
+      const status = await getGoogleAuthStatus()
+      setIsGoogleAuthenticated(status.connected)
+      setGoogleConnectedEmail(status.googleEmail ?? null)
+    } catch (error) {
+      setIsGoogleAuthenticated(false)
+      setGoogleConnectedEmail(null)
+      setGoogleError(error instanceof Error ? error.message : 'Unable to check Google connection status')
+    }
+  }, [getGoogleAuthStatus])
+
   const loadGoogleProjects = useCallback(async () => {
-    if (!googleAccessToken) return
+    if (!isGoogleAuthenticated) return
 
     setIsLoadingGoogleData(true)
     setGoogleError(null)
 
     try {
-      const projects = await listGoogleProjects(googleAccessToken, googleRefreshToken || undefined)
+      const projects = await listGoogleProjects()
       setGoogleProjects(projects)
     } catch (error) {
       setGoogleError(error instanceof Error ? error.message : 'Failed to load Google projects')
     } finally {
       setIsLoadingGoogleData(false)
     }
-  }, [googleAccessToken, googleRefreshToken, listGoogleProjects])
+  }, [isGoogleAuthenticated, listGoogleProjects])
 
   const loadGoogleBuckets = useCallback(async (projectId: string) => {
-    if (!googleAccessToken || !projectId) return
+    if (!isGoogleAuthenticated || !projectId) return
 
     setIsLoadingGoogleData(true)
     setGoogleError(null)
 
     try {
-      const buckets = await listGoogleBuckets(projectId, googleAccessToken, googleRefreshToken || undefined)
+      const buckets = await listGoogleBuckets(projectId)
       setGoogleBuckets(buckets)
     } catch (error) {
       setGoogleError(error instanceof Error ? error.message : 'Failed to load buckets')
@@ -216,43 +229,50 @@ function ProjectDataView() {
     } finally {
       setIsLoadingGoogleData(false)
     }
-  }, [googleAccessToken, googleRefreshToken, listGoogleBuckets])
+  }, [isGoogleAuthenticated, listGoogleBuckets])
+
+  useEffect(() => {
+    refreshGoogleStatus().catch(() => {
+      /* handled in refreshGoogleStatus */
+    })
+  }, [refreshGoogleStatus])
 
   // Handle OAuth callback on page load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const oauthSuccess = urlParams.get('oauth_success')
-    const accessToken = urlParams.get('access_token')
-    const refreshToken = urlParams.get('refresh_token')
-    const email = urlParams.get('email')
-
     if (oauthSuccess === 'true') {
-      if (accessToken) {
-        setGoogleAccessToken(accessToken)
-        setGoogleRefreshToken(refreshToken)
-        setIsGoogleAuthenticated(true)
-        setGoogleError(null)
-        console.log('OAuth successful for:', email)
-      } else {
-        setGoogleError('OAuth completed but no access token received')
-      }
-      // Clean up URL
+      refreshGoogleStatus().catch(() => {
+        /* handled in refreshGoogleStatus */
+      })
       const newUrl = window.location.pathname
       window.history.replaceState({}, document.title, newUrl)
     }
-  }, [])
+  }, [refreshGoogleStatus])
 
   useEffect(() => {
-    if (isGoogleAuthenticated && googleAccessToken) {
-      loadGoogleProjects()
+    if (isGoogleAuthenticated) {
+      loadGoogleProjects().catch(() => {
+        /* error handled inside loader */
+      })
+    } else {
+      setGoogleProjects([])
+      setSelectedGoogleProjectId('')
+      setGoogleBuckets([])
+      setConnectionForm((prev) => ({ ...prev, gcpProjectId: '' }))
     }
-  }, [isGoogleAuthenticated, googleAccessToken, loadGoogleProjects])
+  }, [isGoogleAuthenticated, loadGoogleProjects])
 
   useEffect(() => {
-    if (selectedGoogleProjectId && googleAccessToken) {
-      loadGoogleBuckets(selectedGoogleProjectId)
+    if (selectedGoogleProjectId && isGoogleAuthenticated) {
+      loadGoogleBuckets(selectedGoogleProjectId).catch(() => {
+        /* handled in loader */
+      })
+    } else {
+      setGoogleBuckets([])
+      setConnectionForm((prev) => ({ ...prev, gcpProjectId: '' }))
     }
-  }, [selectedGoogleProjectId, googleAccessToken, loadGoogleBuckets])
+  }, [selectedGoogleProjectId, isGoogleAuthenticated, loadGoogleBuckets])
 
   const handleConnectionFieldChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -930,6 +950,9 @@ function ProjectDataView() {
                 <>
                   <div className="space-y-3 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-800">
                     <p className="font-semibold">✓ Google account connected</p>
+                    {googleConnectedEmail && (
+                      <p className="text-xs text-green-700 break-all">{googleConnectedEmail}</p>
+                    )}
                     <p>Choose a project and bucket from your Google Cloud account.</p>
                   </div>
 
