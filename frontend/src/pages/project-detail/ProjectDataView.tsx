@@ -231,24 +231,22 @@ function ProjectDataView() {
     }
   }, [isGoogleAuthenticated, listGoogleBuckets])
 
-  useEffect(() => {
-    refreshGoogleStatus().catch(() => {
-      /* handled in refreshGoogleStatus */
-    })
-  }, [refreshGoogleStatus])
-
-  // Handle OAuth callback on page load
+  // Handle OAuth callback and initial status check in one effect
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const oauthSuccess = urlParams.get('oauth_success')
+
     if (oauthSuccess === 'true') {
-      refreshGoogleStatus().catch(() => {
-        /* handled in refreshGoogleStatus */
-      })
+      // Clean up URL first
       const newUrl = window.location.pathname
       window.history.replaceState({}, document.title, newUrl)
     }
-  }, [refreshGoogleStatus])
+
+    // Check status once on mount (or after OAuth redirect)
+    refreshGoogleStatus().catch(() => {
+      /* handled in refreshGoogleStatus */
+    })
+  }, [])
 
   useEffect(() => {
     if (isGoogleAuthenticated) {
