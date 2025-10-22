@@ -192,6 +192,9 @@ class GoogleOAuthService:
         return None
 
 
-google_oauth_service = GoogleOAuthService()
+# Initialize service only if credentials are configured
+google_oauth_service: Optional[GoogleOAuthService] = None
+if settings.google_oauth_client_id and settings.google_oauth_client_secret:
+    google_oauth_service = GoogleOAuthService()
 
 __all__ = ["google_oauth_service", "GoogleOAuthError"]

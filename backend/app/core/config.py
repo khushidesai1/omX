@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 
 from pydantic import AnyHttpUrl, EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
   algorithm: str = Field(default="HS256", alias="ALGORITHM")
   access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
-  cors_origins: List[AnyHttpUrl] = Field(default_factory=lambda: ["http://localhost:5173"])
+  cors_origins: Union[List[str], str] = Field(default="http://localhost:5173")
   cors_origin_regex: Optional[str] = Field(default=None, alias="CORS_ORIGIN_REGEX")
   sendgrid_api_key: Optional[str] = Field(default=None, alias="SENDGRID_API_KEY")
   access_request_recipient: EmailStr = Field(default="khushi.desai@columbia.edu", alias="ACCESS_REQUEST_EMAIL")
@@ -40,11 +40,22 @@ class Settings(BaseSettings):
 
   @field_validator("cors_origins", mode="before")
   @classmethod
-  def _split_cors_origins(cls, value: AnyHttpUrl | str | List[AnyHttpUrl]) -> List[AnyHttpUrl] | str:
+  def _split_cors_origins(cls, value: Any) -> List[str]:
+    if isinstance(value, list):
+      return [str(v) for v in value]
     if isinstance(value, str):
+      # Try to parse as JSON first
+      import json
+      try:
+        parsed = json.loads(value)
+        if isinstance(parsed, list):
+          return [str(v) for v in parsed]
+      except (json.JSONDecodeError, ValueError):
+        pass
+      # Fall back to comma-separated parsing
       cleaned = [origin.strip() for origin in value.split(",") if origin.strip()]
-      return cleaned or value
-    return value
+      return cleaned if cleaned else [value]
+    return [str(value)]
 
 
 @lru_cache

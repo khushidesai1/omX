@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.mixins import TimestampMixin
+
+if TYPE_CHECKING:
+  from app.models.user import User
 
 
 class UserGoogleCredential(Base, TimestampMixin):
@@ -19,12 +24,8 @@ class UserGoogleCredential(Base, TimestampMixin):
   scopes: Mapped[str | None] = mapped_column(Text(), nullable=True)
   access_token_encrypted: Mapped[str | None] = mapped_column(Text(), nullable=True)
   refresh_token_encrypted: Mapped[str | None] = mapped_column(Text(), nullable=True)
-  access_token_expires_at: Mapped["datetime | None"] = mapped_column(nullable=True)
+  access_token_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
   user: Mapped["User"] = relationship("User", back_populates="google_credentials")
-
-
-from datetime import datetime  # noqa: E402  # isort:skip
-from app.models.user import User  # noqa: E402  # isort:skip
 
 __all__ = ["UserGoogleCredential"]

@@ -1,33 +1,90 @@
-# Node / frontend
-node_modules/
-frontend/node_modules/
-frontend/dist/
-
-# Python / backend
-backend/.venv/
-backend/__pycache__/
-backend/app/**/__pycache__/
-backend/alembic/versions/__pycache__/
-backend/.pytest_cache/
-backend/*.db
-backend/omx_dev.db
-backend/.vscode/
-backend/.ruff_cache/
-backend/.mypy_cache/
-backend/.coverage
-
-# Misc caches
-.cache/
-.DS_Store
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-__pycache__/
+*.pdb
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+backend/.venv/
+backend/venv/
+
+# Python testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Python IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# Python databases
+*.db
+*.sqlite
+*.sqlite3
+omx_dev.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Frontend logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Misc caches
+.cache/
+*.log
 
 # Mirage build and cache directory
 .mirage/
 
-# Generated builds
-/api/__pycache__/
-api/__pycache__/
-api/*.pyc
+# Cascade build and cache directory
+.cascade/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp

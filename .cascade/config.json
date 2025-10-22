@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "omX",
+    "workingDirectory": "frontend"
+  },
+  "commands": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "install": "npm install"
+  },
+  "build": {
+    "outputDir": "dist"
+  }
+}
