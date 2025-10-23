@@ -17,7 +17,7 @@ class Settings(BaseSettings):
   algorithm: str = Field(default="HS256", alias="ALGORITHM")
   access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
-  cors_origins: Union[List[str], str] = Field(default="http://localhost:5173")
+  cors_origins: Union[List[str], str] = Field(default="http://localhost:58530,http://localhost:5173")
   cors_origin_regex: Optional[str] = Field(default=None, alias="CORS_ORIGIN_REGEX")
   sendgrid_api_key: Optional[str] = Field(default=None, alias="SENDGRID_API_KEY")
   access_request_recipient: EmailStr = Field(default="khushi.desai@columbia.edu", alias="ACCESS_REQUEST_EMAIL")
