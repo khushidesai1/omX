@@ -573,26 +573,14 @@ function ProjectDataView() {
               aria-hidden
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
-              className="h-4 w-4"
+              className="h-5 w-5"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.6"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 4v6h6"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M20 20v-6h-6"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5.64 18.36A9 9 0 108.46 5.64"
-              />
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
             </svg>
           </button>
           <button
