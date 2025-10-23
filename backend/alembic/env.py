@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import time
 from logging.config import fileConfig
 
 from alembic import context
@@ -56,10 +57,32 @@ async def run_migrations_online() -> None:
     section or {},
     prefix="sqlalchemy.",
     poolclass=pool.NullPool,
+    connect_args={
+      "timeout": 60,
+      "command_timeout": 60,
+      "server_settings": {
+        "application_name": "alembic_migration"
+      }
+    }
   )
 
-  async with connectable.connect() as connection:
-    await connection.run_sync(do_run_migrations)
+  max_retries = 5
+  retry_delay = 2
+
+  for attempt in range(max_retries):
+    try:
+      async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+      break
+    except Exception as e:
+      if attempt < max_retries - 1:
+        print(f"Migration attempt {attempt + 1} failed: {e}")
+        print(f"Retrying in {retry_delay} seconds...")
+        time.sleep(retry_delay)
+        retry_delay *= 2  # Exponential backoff
+      else:
+        print(f"Migration failed after {max_retries} attempts")
+        raise
 
   await connectable.dispose()
 
