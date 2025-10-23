@@ -20,15 +20,39 @@ npm run build # outputs static bundle to frontend/dist
 5. Output directory: `dist`
 6. Deploy — the `vercel.json` rewrite ensures client-side routing works.
 
-## Backend (optional)
+## Backend
 
-The FastAPI service in `backend/` can be run independently if you need API endpoints:
+The FastAPI service in `backend/` provides API endpoints for authentication and data management:
 
 ```bash
 cd backend
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+
+# Run the server
+./start.sh  # or: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+The backend runs on **port 8000** by default.
+
+### CORS Configuration for Cascade
+
+The backend is configured to work with Cascade, which may use dynamic ports. The CORS settings in `backend/.env` include:
+
+- **CORS_ORIGINS**: Specific allowed origins (e.g., `http://localhost:58530,http://localhost:5173`)
+- **CORS_ORIGIN_REGEX**: Regex pattern to allow any localhost port (useful for Cascade)
+
+This ensures the backend works regardless of which port Cascade chooses:
+
+```bash
+CORS_ORIGIN_REGEX=^http://localhost:[0-9]+$
+```
+
+**Note**: This regex only allows `http://localhost:*` origins for security. External origins must be explicitly listed in `CORS_ORIGINS`.
 
 ## Project Structure
 
