@@ -56,7 +56,7 @@ function ProjectDetailLayout() {
   }
 
   if (!workspaceId || !projectId) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/workspaces" replace />
   }
 
   if (!project) {
@@ -69,7 +69,7 @@ function ProjectDetailLayout() {
           </p>
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(`/workspace/${workspaceId}`)}
             className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-dark"
           >
             Return to workspace dashboard
@@ -100,7 +100,7 @@ function ProjectDetailLayout() {
           userDisplayName={userDisplayName}
           userEmail={authState.user?.email ?? ''}
           userInitials={userInitials}
-          onBackToWorkspace={() => navigate('/dashboard')}
+          onBackToWorkspace={() => navigate(`/workspace/${workspaceId}`)}
           onWorkspaceSettings={() => navigate(`/workspace/${workspaceId}/settings`)}
           onLogout={handleLogout}
         />

@@ -37,6 +37,14 @@ function App() {
           }
         />
         <Route
+          path="/workspace/:workspaceId"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/workspace/:workspaceId/settings"
           element={
             <ProtectedRoute>

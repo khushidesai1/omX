@@ -143,7 +143,7 @@ function WorkspaceSettings() {
 
     try {
       await deleteWorkspace(workspaceId)
-      navigate('/dashboard')
+      navigate('/workspaces')
     } catch (deleteErr) {
       setDeleteError(deleteErr instanceof Error ? deleteErr.message : 'Unable to delete workspace.')
     } finally {
@@ -167,10 +167,10 @@ function WorkspaceSettings() {
           <p className="mt-2 text-sm">{error}</p>
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/workspaces')}
             className="mt-6 rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-dark"
           >
-            Return to dashboard
+            Return to workspaces
           </button>
         </div>
       </div>
@@ -194,7 +194,7 @@ function WorkspaceSettings() {
           <button
             type="button"
             onClick={() => {
-              navigate('/dashboard')
+              navigate(`/workspace/${workspaceId}`)
             }}
             className="inline-flex items-center gap-2 self-start rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
           >
