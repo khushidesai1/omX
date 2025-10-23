@@ -43,10 +43,9 @@ dmypy.json
 omx_dev.db
 
 # Environment variables
-.env
 .env.local
 .env.*.local
-*.env
+!.env
 !.env.example
 
 # Node / Frontend
@@ -81,7 +80,8 @@ Thumbs.db
 .mirage/
 
 # Cascade build and cache directory
-.cascade/
+.cascade/builds
+.cascade/cache
 
 # Temporary files
 *.tmp

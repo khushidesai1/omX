@@ -6,8 +6,7 @@ import type { UpdateWorkspacePayload, WorkspaceDetail } from '../types/workspace
 
 function WorkspaceSettings() {
   const { workspaceId } = useParams<{ workspaceId: string }>()
- const navigate = useNavigate()
-  const [previousPath, setPreviousPath] = useState<string | null>(null)
+  const navigate = useNavigate()
   const {
     fetchWorkspaceDetail,
     updateWorkspace,
@@ -37,8 +36,6 @@ function WorkspaceSettings() {
   )
 
   useEffect(() => {
-    setPreviousPath((state) => state ?? (document.referrer || null))
-
     if (!workspaceId) {
       return
     }
@@ -48,10 +45,10 @@ function WorkspaceSettings() {
 
     fetchWorkspaceDetail(workspaceId)
       .then((workspace) => {
-       setDetail(workspace)
-       setFormState({
-         name: workspace.name,
-         slug: workspace.slug,
+        setDetail(workspace)
+        setFormState({
+          name: workspace.name,
+          slug: workspace.slug,
           description: workspace.description ?? '',
           accessKey: workspace.accessKey ?? '',
           isPublic: workspace.isPublic,
@@ -146,7 +143,7 @@ function WorkspaceSettings() {
 
     try {
       await deleteWorkspace(workspaceId)
-      navigate('/dashboard')
+      navigate('/workspaces')
     } catch (deleteErr) {
       setDeleteError(deleteErr instanceof Error ? deleteErr.message : 'Unable to delete workspace.')
     } finally {
@@ -170,10 +167,10 @@ function WorkspaceSettings() {
           <p className="mt-2 text-sm">{error}</p>
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/workspaces')}
             className="mt-6 rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-dark"
           >
-            Return to dashboard
+            Return to workspaces
           </button>
         </div>
       </div>
@@ -197,13 +194,7 @@ function WorkspaceSettings() {
           <button
             type="button"
             onClick={() => {
-              if (previousPath) {
-                window.location.href = previousPath
-              } else if (history.length > 1) {
-                navigate(-1)
-              } else {
-                navigate('/dashboard')
-              }
+              navigate(`/workspace/${workspaceId}`)
             }}
             className="inline-flex items-center gap-2 self-start rounded-full border border-brand-primary/30 bg-white px-4 py-2 text-sm font-semibold text-brand-muted transition hover:border-brand-primary/60 hover:text-brand-primary"
           >

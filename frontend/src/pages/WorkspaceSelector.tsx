@@ -58,7 +58,7 @@ function WorkspaceSelector() {
 
   const handleSelectWorkspace = (workspaceId: string) => {
     setCurrentWorkspace(workspaceId)
-    navigate('/dashboard')
+    navigate(`/workspace/${workspaceId}`)
   }
 
   const handleCreateWorkspace = async (event: FormEvent<HTMLFormElement>) => {
@@ -76,7 +76,7 @@ function WorkspaceSelector() {
       setCreateSuccess({ workspaceId: response.workspace.slug, accessKey: response.accessKey })
       setCreateForm({ name: '', description: '', accessKey: '', slug: '' })
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate(`/workspace/${response.workspace.id}`)
       }, 800)
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Unable to create workspace.')
@@ -98,7 +98,7 @@ function WorkspaceSelector() {
       setJoinSuccess(`Joined ${workspace.name} (ID: ${workspace.slug})`)
       setJoinForm({ workspaceId: '', accessKey: '' })
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate(`/workspace/${workspace.id}`)
       }, 650)
     } catch (error) {
       setJoinError(error instanceof Error ? error.message : 'Unable to join workspace.')

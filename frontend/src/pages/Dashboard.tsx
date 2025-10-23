@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher'
 import ProjectCreationModal from '../components/ProjectCreationModal'
@@ -9,20 +9,28 @@ import { useAuth } from '../hooks/useAuth'
 import type { CreateProjectPayload } from '../types/project'
 
 function Dashboard() {
-  const { authState, workspaces, logout, getProjects, createProject } = useAuth()
+  const { workspaceId } = useParams<{ workspaceId?: string }>()
+  const { authState, workspaces, logout, getProjects, createProject, setCurrentWorkspace } = useAuth()
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const currentWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.id === authState.currentWorkspaceId),
-    [workspaces, authState.currentWorkspaceId],
+    () => {
+      // If workspaceId is in URL, use that, otherwise fall back to authState
+      const targetId = workspaceId || authState.currentWorkspaceId
+      return workspaces.find((workspace) => workspace.id === targetId)
+    },
+    [workspaces, workspaceId, authState.currentWorkspaceId],
   )
 
   useEffect(() => {
     if (authState.isAuthenticated && !currentWorkspace) {
       navigate('/workspaces')
+    } else if (currentWorkspace && workspaceId && workspaceId !== authState.currentWorkspaceId) {
+      // Update the auth state if URL has a different workspace
+      setCurrentWorkspace(workspaceId)
     }
-  }, [authState.isAuthenticated, currentWorkspace, navigate])
+  }, [authState.isAuthenticated, currentWorkspace, navigate, workspaceId, authState.currentWorkspaceId, setCurrentWorkspace])
 
   const projects = currentWorkspace ? getProjects(currentWorkspace.id) : []
 
@@ -68,7 +76,7 @@ function Dashboard() {
           </div>
           <div className="flex flex-wrap items-center gap-4 md:justify-end">
             <WorkspaceSwitcher
-              onWorkspaceChange={() => navigate('/dashboard')}
+              onWorkspaceChange={(workspaceId) => navigate(`/workspace/${workspaceId}`)}
               onCreateWorkspace={() => navigate('/workspaces')}
               onJoinWorkspace={() => navigate('/workspaces')}
               onWorkspaceSettings={(workspaceId) => navigate(`/workspace/${workspaceId}/settings`)}
